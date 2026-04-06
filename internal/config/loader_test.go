@@ -3,8 +3,20 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
+
+// setGlobalConfigDir redirects the global config lookup to dir for the duration
+// of the test, in a platform-correct way.
+func setGlobalConfigDir(t *testing.T, dir string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Setenv("APPDATA", dir)
+	} else {
+		t.Setenv("XDG_CONFIG_HOME", dir)
+	}
+}
 
 func writeTOML(t *testing.T, dir, name, content string) {
 	t.Helper()
@@ -107,6 +119,45 @@ func TestMerge_EmptyLocal(t *testing.T) {
 	result := merge(base, DotFile{})
 	if len(result) != 1 || result[0].Name != "a" {
 		t.Errorf("unexpected merge result: %+v", result)
+	}
+}
+
+func TestLoad_LocalBackendAlwaysPresent(t *testing.T) {
+	dir := t.TempDir()
+	// No global config, no dotfile — local backend should still be injected.
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	bc := cfg.Global.BackendByName("local")
+	if bc == nil {
+		t.Fatal("expected 'local' backend to be present by default")
+	}
+	if bc.Type != "keychain" {
+		t.Errorf("expected type=keychain, got %q", bc.Type)
+	}
+}
+
+func TestLoad_LocalBackendNotOverriddenByDefault(t *testing.T) {
+	dir := t.TempDir()
+	// If the user declares their own "local" backend, it should not be replaced.
+	globalDir := t.TempDir()
+	setGlobalConfigDir(t, globalDir)
+	if err := os.MkdirAll(globalDir+"/envoke", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeTOML(t, globalDir+"/envoke", "config.toml", `
+[[backend]]
+name = "local"
+type = "keeper"
+`)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	bc := cfg.Global.BackendByName("local")
+	if bc == nil || bc.Type != "keeper" {
+		t.Errorf("expected user-defined local=keeper to win, got %v", bc)
 	}
 }
 

@@ -1,0 +1,107 @@
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+
+	"git.dries.info/gerco/envoke/internal/backend"
+	"git.dries.info/gerco/envoke/internal/config"
+
+	_ "git.dries.info/gerco/envoke/internal/backend/jumpcloud"
+	_ "git.dries.info/gerco/envoke/internal/backend/keeper"
+	_ "git.dries.info/gerco/envoke/internal/backend/keychain"
+)
+
+func init() {
+	rootCmd.AddCommand(setCmd)
+}
+
+var setCmd = &cobra.Command{
+	Use:   "set <namespace> <key> [value]",
+	Short: "Store a secret in a backend namespace",
+	Long: `Store a secret in the backend configured for namespace.
+
+If value is omitted, it is read from stdin (hidden if the terminal supports it).
+This avoids the value appearing in shell history.
+
+Examples:
+  ee set db-local DB_PASSWORD
+  echo "s3cr3t" | ee set db-local DB_PASSWORD`,
+	Args: cobra.RangeArgs(2, 3),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		namespace, key := args[0], args[1]
+
+		var value string
+		if len(args) == 3 {
+			value = args[2]
+		} else {
+			v, err := readSecret(fmt.Sprintf("Value for %s/%s: ", namespace, key))
+			if err != nil {
+				return fmt.Errorf("read value: %w", err)
+			}
+			value = v
+		}
+
+		cfg, err := config.Load(projectDir)
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
+
+		bc := cfg.Global.BackendByName(namespace)
+		if bc == nil {
+			// Fall back: look for a namespace entry in the dotfile and use its backend.
+			bc = backendForNamespace(cfg, namespace)
+		}
+		if bc == nil {
+			return fmt.Errorf("no backend configured for namespace %q\n"+
+				"Add it to ~/.config/envoke/config.toml or .envoke", namespace)
+		}
+
+		b, err := backend.New(bc.Type, mergeBackendOpts(bc.Options, nil))
+		if err != nil {
+			return fmt.Errorf("open backend: %w", err)
+		}
+
+		if err := b.Set(namespace, key, value); err != nil {
+			return fmt.Errorf("set %s/%s: %w", namespace, key, err)
+		}
+
+		fmt.Fprintf(os.Stderr, "Stored %s/%s\n", namespace, key)
+		return nil
+	},
+}
+
+// readSecret reads a value from stdin, suppressing echo when on a real terminal.
+func readSecret(prompt string) (string, error) {
+	fd := int(os.Stdin.Fd())
+	if term.IsTerminal(fd) {
+		fmt.Fprint(os.Stderr, prompt)
+		b, err := term.ReadPassword(fd)
+		fmt.Fprintln(os.Stderr) // newline after hidden input
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+	// Non-interactive: read a line from stdin.
+	var line string
+	_, err := fmt.Scanln(&line)
+	if err != nil {
+		return "", err
+	}
+	return line, nil
+}
+
+// backendForNamespace finds the BackendConfig for the backend name referenced
+// by a namespace entry in the dotfile.
+func backendForNamespace(cfg *config.Loaded, namespaceName string) *config.BackendConfig {
+	for _, ns := range cfg.Namespaces {
+		if ns.Name == namespaceName {
+			return cfg.Global.BackendByName(ns.Backend)
+		}
+	}
+	return nil
+}

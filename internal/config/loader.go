@@ -54,7 +54,21 @@ func loadGlobal() (GlobalConfig, error) {
 	if err := decodeFile(path, &cfg); err != nil {
 		return GlobalConfig{}, err
 	}
+	applyDefaults(&cfg)
 	return cfg, nil
+}
+
+// applyDefaults injects built-in backend configurations that are always
+// available without any user configuration. User-declared entries with the
+// same name take precedence and are left untouched.
+func applyDefaults(cfg *GlobalConfig) {
+	// "local" is always available and maps to the OS keychain.
+	if cfg.BackendByName("local") == nil {
+		cfg.Backends = append(cfg.Backends, BackendConfig{
+			Name: "local",
+			Type: "keychain",
+		})
+	}
 }
 
 func globalConfigPath() (string, error) {
