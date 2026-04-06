@@ -49,6 +49,11 @@ Examples:
 			return fmt.Errorf("load config: %w", err)
 		}
 
+		bc := resolveBackend(cfg, namespace)
+		if bc == nil {
+			return fmt.Errorf("no backend available (this should not happen)")
+		}
+
 		b, err := openBackend(cfg, namespace)
 		if err != nil {
 			return fmt.Errorf("open backend for %q: %w", namespace, err)
@@ -59,6 +64,15 @@ Examples:
 		}
 
 		fmt.Fprintf(os.Stderr, "Stored %s/%s\n", namespace, key)
+
+		added, err := config.EnsureNamespace(projectDir, namespace, bc.Name)
+		if err != nil {
+			return fmt.Errorf("update .envoke: %w", err)
+		}
+		if added {
+			fmt.Fprintf(os.Stderr, "Added namespace %q (backend: %s) to .envoke\n", namespace, bc.Name)
+		}
+
 		return nil
 	},
 }
