@@ -1,0 +1,12 @@
+# Build output — root-level binaries only
+/ee
+/ee.exe
+/dist/
+
+# Personal config overrides — never commit these
+.envoke.local
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
