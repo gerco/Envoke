@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"maps"
 	"os"
 	"text/tabwriter"
 
@@ -47,7 +46,7 @@ func checkNamespace(cfg *config.Loaded, ns config.Namespace) string {
 		return "✗ backend not configured"
 	}
 
-	b, err := backend.New(bc.Type, mergeBackendOpts(bc.Options, ns.Options))
+	b, err := backend.New(bc.Type, mergeOpts(bc.Options, ns.Options))
 	if err != nil {
 		return fmt.Sprintf("✗ %s", err)
 	}
@@ -57,14 +56,4 @@ func checkNamespace(cfg *config.Loaded, ns config.Namespace) string {
 		return fmt.Sprintf("✗ %s", err)
 	}
 	return "✓ ok"
-}
-
-func mergeBackendOpts(base, override map[string]string) map[string]string {
-	if len(base) == 0 && len(override) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(base)+len(override))
-	maps.Copy(out, base)
-	maps.Copy(out, override)
-	return out
 }

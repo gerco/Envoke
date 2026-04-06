@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"git.dries.info/gerco/envoke/internal/backend"
 	"git.dries.info/gerco/envoke/internal/config"
 
 	_ "git.dries.info/gerco/envoke/internal/backend/jumpcloud"
@@ -50,18 +49,9 @@ Examples:
 			return fmt.Errorf("load config: %w", err)
 		}
 
-		// Resolve backend: dotfile mapping → then default to "local".
-		bc := backendForNamespace(cfg, namespace)
-		if bc == nil {
-			bc = cfg.Global.BackendByName("local")
-		}
-		if bc == nil {
-			return fmt.Errorf("no backend configured for namespace %q", namespace)
-		}
-
-		b, err := backend.New(bc.Type, mergeBackendOpts(bc.Options, nil))
+		b, err := openBackend(cfg, namespace)
 		if err != nil {
-			return fmt.Errorf("open backend: %w", err)
+			return fmt.Errorf("open backend for %q: %w", namespace, err)
 		}
 
 		if err := b.Set(namespace, key, value); err != nil {
@@ -92,15 +82,4 @@ func readSecret(prompt string) (string, error) {
 		return "", err
 	}
 	return line, nil
-}
-
-// backendForNamespace finds the BackendConfig for the backend name referenced
-// by a namespace entry in the dotfile.
-func backendForNamespace(cfg *config.Loaded, namespaceName string) *config.BackendConfig {
-	for _, ns := range cfg.Namespaces {
-		if ns.Name == namespaceName {
-			return cfg.Global.BackendByName(ns.Backend)
-		}
-	}
-	return nil
 }
