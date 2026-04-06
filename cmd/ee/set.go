@@ -50,14 +50,13 @@ Examples:
 			return fmt.Errorf("load config: %w", err)
 		}
 
-		bc := cfg.Global.BackendByName(namespace)
+		// Resolve backend: dotfile mapping → then default to "local".
+		bc := backendForNamespace(cfg, namespace)
 		if bc == nil {
-			// Fall back: look for a namespace entry in the dotfile and use its backend.
-			bc = backendForNamespace(cfg, namespace)
+			bc = cfg.Global.BackendByName("local")
 		}
 		if bc == nil {
-			return fmt.Errorf("no backend configured for namespace %q\n"+
-				"Add it to ~/.config/envoke/config.toml or .envoke", namespace)
+			return fmt.Errorf("no backend configured for namespace %q", namespace)
 		}
 
 		b, err := backend.New(bc.Type, mergeBackendOpts(bc.Options, nil))
