@@ -51,20 +51,19 @@ The `keychain` backend is always compiled in — no build tag needed.
 ### Build Commands
 
 ```bash
-# Build with no backends (~7.6MB)
+# Keychain only (~7.6MB — keychain is always compiled in)
 go build -o ee ./cmd/ee
 
-# Build with specific backend
-go build -tags keychain -o ee ./cmd/ee
-go build -tags "keychain,1password" -o ee ./cmd/ee
+# With additional backends
+go build -tags "aws,1password" -o ee ./cmd/ee
 
-# Build with all backends (~35MB+ with 1password and aws)
-go build -tags "1password,keychain,keeper,jumpcloud,aws" -o ee ./cmd/ee
+# All backends
+go build -tags "1password,keeper,jumpcloud,aws" -o ee ./cmd/ee
 
 # Using justfile
 just build              # builds with all backends
-just build-minimal      # no backends
-just build-with keychain,aws
+just build-minimal      # keychain only
+just build-with aws,1password
 ```
 
 ### Adding a New Backend
@@ -101,6 +100,11 @@ When implementing a new backend:
 - This project is hosted on **Gitea**, not GitHub. Use the `tea` CLI or the Gitea API for issue, milestone, and release operations.
 - Remote: `ssh://git@git.dries.info/gerco/Envoke`
 - Do not use `gh` (GitHub CLI).
+- **Branch workflow**: Direct commits to main are not allowed. All changes must go through pull requests:
+  1. Create a feature branch: `git checkout -b feature/description`
+  2. Make changes and commit
+  3. Push branch and create PR via `tea pulls create` or Gitea web UI
+  4. Merge after review
 
 ## Code Style
 

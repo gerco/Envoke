@@ -327,6 +327,38 @@ just build-with aws,1password
 
 ---
 
+## macOS Code Signing
+
+On macOS, binaries that access the keychain must be code-signed to avoid repeated permission prompts from the OS.
+
+### Development (self-signed certificate)
+
+1. Open **Keychain Access** (`/Applications/Utilities/Keychain Access.app`)
+2. Go to **Keychain Access > Certificate Assistant > Create Certificate...**
+3. Fill in:
+   - **Name**: `envoke-dev`
+   - **Identity Type**: Self Signed Root
+   - **Certificate Type**: Code Signing
+4. Click **Create**, then **Continue**
+5. Double-click the new certificate, expand **Trust**, set **Code Signing** to **Always Trust**, close (admin password required)
+
+Then build and sign:
+
+```bash
+just develop      # build + sign with self-signed cert
+just sign-dev     # sign an existing binary
+```
+
+### Distribution (Developer ID)
+
+```bash
+just sign-release
+```
+
+Requires an Apple Developer account, a Developer ID Application certificate, and a notarytool profile configured in Keychain.
+
+---
+
 ## Security Model
 
 Secrets exist only in the environment of the subprocess spawned by `ee`. They are not written to disk, not exported into the parent shell, and not visible to other processes.
