@@ -51,20 +51,19 @@ The `keychain` backend is always compiled in — no build tag needed.
 ### Build Commands
 
 ```bash
-# Build with no backends (~7.6MB)
+# Keychain only (~7.6MB — keychain is always compiled in)
 go build -o ee ./cmd/ee
 
-# Build with specific backend
-go build -tags keychain -o ee ./cmd/ee
-go build -tags "keychain,1password" -o ee ./cmd/ee
+# With additional backends
+go build -tags "aws,1password" -o ee ./cmd/ee
 
-# Build with all backends (~35MB+ with 1password and aws)
-go build -tags "1password,keychain,keeper,jumpcloud,aws" -o ee ./cmd/ee
+# All backends
+go build -tags "1password,keeper,jumpcloud,aws" -o ee ./cmd/ee
 
 # Using justfile
 just build              # builds with all backends
-just build-minimal      # no backends
-just build-with keychain,aws
+just build-minimal      # keychain only
+just build-with aws,1password
 ```
 
 ### Adding a New Backend
@@ -106,49 +105,6 @@ When implementing a new backend:
   2. Make changes and commit
   3. Push branch and create PR via `tea pulls create` or Gitea web UI
   4. Merge after review
-
-## macOS Code Signing
-
-On macOS, binaries accessing the keychain must be code-signed to avoid repeated permission prompts. This affects development builds (unsigned) but not properly signed release builds.
-
-### Creating a Self-Signed Certificate (Development)
-
-For development, create a self-signed code signing certificate:
-
-1. Open **Keychain Access** (`/Applications/Utilities/Keychain Access.app`)
-2. Go to **Keychain Access > Certificate Assistant > Create Certificate...**
-3. Enter:
-   - **Name**: `envoke-dev`
-   - **Identity Type**: Self Signed Root
-   - **Certificate Type**: Code Signing
-4. Click **Create**, then **Continue**
-5. Set **Trust Settings** for the certificate:
-   - Double-click the new certificate in Keychain Access
-   - Expand **Trust** section
-   - Set **Code Signing** to: **Always Trust**
-6. Close Keychain Access (admin password required)
-
-### Signing During Development
-
-Use the justfile recipes:
-
-```bash
-just develop      # build + sign with self-signed cert
-just sign-dev     # sign existing binary
-```
-
-### For Distribution (Developer ID)
-
-Releases should be signed with an Apple Developer ID certificate:
-
-```bash
-just sign-release
-```
-
-This requires:
-- Apple Developer account ($99/year)
-- Developer ID Application certificate
-- Notarytool profile configured in Keychain
 
 ## Code Style
 
