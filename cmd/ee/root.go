@@ -9,9 +9,7 @@ import (
 	"git.dries.info/gerco/envoke/internal/config"
 	"git.dries.info/gerco/envoke/internal/runner"
 
-	_ "git.dries.info/gerco/envoke/internal/backend/jumpcloud"
-	_ "git.dries.info/gerco/envoke/internal/backend/keeper"
-	_ "git.dries.info/gerco/envoke/internal/backend/keychain"
+
 )
 
 var rootCmd = &cobra.Command{
