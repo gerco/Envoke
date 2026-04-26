@@ -10,9 +10,7 @@ import (
 
 	"git.dries.info/gerco/envoke/internal/config"
 
-	_ "git.dries.info/gerco/envoke/internal/backend/jumpcloud"
-	_ "git.dries.info/gerco/envoke/internal/backend/keeper"
-	_ "git.dries.info/gerco/envoke/internal/backend/keychain"
+
 )
 
 func init() {
