@@ -29,7 +29,71 @@ Unix philosophy applies throughout:
   - `spf13/cobra` — CLI structure
   - Keeper Secrets Manager Go SDK
   - JumpCloud Go SDK / REST client
+  - AWS SDK v2 (Secrets Manager)
+  - 1Password SDK
 - **Do not add** test frameworks (use `testing` + `testify` only if it already exists in `go.mod`), logging libraries, or utility belts (`lo`, `samber`, etc.).
+
+## Building Backends (Optional Compilation)
+
+Backends use Go build tags for optional compilation to keep binary sizes minimal.
+
+### Available Build Tags
+
+| Tag | Backend | Notes |
+|-----|---------|-------|
+| `keychain` | OS keychain | Uses `99designs/keyring`, ~0MB overhead |
+| `keeper` | Keeper Secrets Manager | Stub implementation currently |
+| `jumpcloud` | JumpCloud Password Manager | Stub implementation currently |
+| `1password` | 1Password Secrets Manager | ~19MB SDK overhead |
+| `aws` | AWS Secrets Manager | ~5MB SDK overhead |
+
+### Build Commands
+
+```bash
+# Build with no backends (~7.6MB)
+go build -o ee ./cmd/ee
+
+# Build with specific backend
+go build -tags keychain -o ee ./cmd/ee
+go build -tags "keychain,1password" -o ee ./cmd/ee
+
+# Build with all backends (~35MB+ with 1password and aws)
+go build -tags "1password,keychain,keeper,jumpcloud,aws" -o ee ./cmd/ee
+
+# Using justfile
+just build              # builds with all backends
+just build-minimal      # no backends
+just build-with keychain,aws
+```
+
+### Adding a New Backend
+
+When implementing a new backend:
+
+1. **Create backend implementation** in `internal/backend/<name>/<name>.go`:
+   - Add `//go:build <name>` tag at the top
+   - Implement `backend.Backend` interface
+   - Register via `backend.Register()` in `init()`
+
+2. **Create conditional import file** `cmd/ee/backend_<name>.go`:
+   ```go
+   //go:build <name>
+   // +build <name>
+
+   package main
+
+   import _ "git.dries.info/gerco/envoke/internal/backend/<name>"
+   ```
+
+3. **Update `justfile`**: Add `<name>` to the `-tags` list in both `build` and `test-all` recipes.
+
+4. **Update `AGENTS.md`**: Add new backend to the approved dependencies list and build tags table.
+
+5. **Test build**: Verify minimal build doesn't include backend symbols:
+   ```bash
+   go build -o /tmp/ee-minimal ./cmd/ee
+   nm /tmp/ee-minimal | grep <name>  # should return nothing
+   ```
 
 ## Repository and Issues
 
