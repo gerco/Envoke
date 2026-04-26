@@ -7,7 +7,7 @@ default:
 
 # Build with all backends included
 build:
-    go build -tags "1password,keychain,keeper,jumpcloud,aws" -o ee ./cmd/ee
+    go build -tags "1password,keeper,jumpcloud,aws" -o ee ./cmd/ee
 
 # Build minimal (no backends)
 build-minimal:
@@ -23,7 +23,7 @@ test:
 
 # Run tests with all backends
 test-all:
-    go test -tags "1password,keychain,keeper,jumpcloud,aws" ./...
+    go test -tags "1password,keeper,jumpcloud,aws" ./...
 
 # Clean build artifacts
 clean:

@@ -303,9 +303,10 @@ stripe-test    1password   ✗ token expired
 
 Backends use Go build tags for optional compilation. Only include the backends you need.
 
+The keychain backend is always included — no build tag needed.
+
 | Tag | Backend | Notes |
 |-----|---------|-------|
-| `keychain` | OS keychain | macOS/Windows/Linux |
 | `aws` | AWS Secrets Manager | ~5MB overhead |
 | `1password` | 1Password Secrets Manager | ~19MB overhead |
 | `keeper` | Keeper Secrets Manager | Stub — not yet implemented |
@@ -313,15 +314,15 @@ Backends use Go build tags for optional compilation. Only include the backends y
 
 ```bash
 # All implemented backends
-go build -tags "keychain,aws,1password" -o ee ./cmd/ee
+go build -tags "aws,1password" -o ee ./cmd/ee
 
-# Minimal — no backends (useful if you only use the built-in keychain default)
+# Minimal — keychain only (~7.6MB)
 go build -o ee ./cmd/ee
 
 # Using justfile
 just build              # all backends
-just build-minimal      # no backends
-just build-with keychain,aws
+just build-minimal      # keychain only
+just build-with aws,1password
 ```
 
 ---

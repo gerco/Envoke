@@ -39,9 +39,10 @@ Backends use Go build tags for optional compilation to keep binary sizes minimal
 
 ### Available Build Tags
 
+The `keychain` backend is always compiled in — no build tag needed.
+
 | Tag | Backend | Notes |
 |-----|---------|-------|
-| `keychain` | OS keychain | Uses `99designs/keyring`, ~0MB overhead |
 | `keeper` | Keeper Secrets Manager | Stub implementation currently |
 | `jumpcloud` | JumpCloud Password Manager | Stub implementation currently |
 | `1password` | 1Password Secrets Manager | ~19MB SDK overhead |
