@@ -78,18 +78,20 @@ type Backend interface {
 }
 ```
 
-### Supported
+### Implemented
 
 | Backend | Platform | Notes |
 |---|---|---|
 | `keychain` | Windows, macOS, Linux | Credential Manager / Keychain / Secret Service via `99designs/keyring` |
-| `keeper` | All | Keeper Secrets Manager SDK |
-| `jumpcloud` | All | JumpCloud REST API |
+| `aws` | All | AWS Secrets Manager; keys stored as JSON fields in one secret per namespace |
+| `1password` | All | 1Password Secrets Manager SDK; read-only via service account token |
 
-### Planned
+### Planned / Stub
 
 | Backend | Notes |
 |---|---|
+| `keeper` | Keeper Secrets Manager — stub, not yet implemented |
+| `jumpcloud` | JumpCloud Password Manager — stub, not yet implemented |
 | `sops` | Encrypted files in git |
 | `vault` | HashiCorp Vault |
 
