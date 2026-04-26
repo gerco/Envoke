@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"strings"
 
+	"git.dries.info/gerco/envoke/internal/backend"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
-	"git.dries.info/gerco/envoke/internal/backend"
 )
 
 const backendName = "aws"
@@ -27,28 +27,37 @@ func init() {
 	})
 }
 
+// secretsManagerClient is the subset of secretsmanager.Client used by awsBackend.
+type secretsManagerClient interface {
+	GetSecretValue(context.Context, *secretsmanager.GetSecretValueInput, ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error)
+	PutSecretValue(context.Context, *secretsmanager.PutSecretValueInput, ...func(*secretsmanager.Options)) (*secretsmanager.PutSecretValueOutput, error)
+	CreateSecret(context.Context, *secretsmanager.CreateSecretInput, ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error)
+}
+
 // awsBackend implements the envoke backend interface for AWS Secrets Manager.
 type awsBackend struct {
-	client *secretsmanager.Client
+	client secretsManagerClient
 	prefix string // optional prefix for secret names (e.g., "envoke/")
 }
 
 // New creates an AWS Secrets Manager backend with the given options.
 func New(opts map[string]string) (*awsBackend, error) {
 	ctx := context.Background()
-	
+
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("aws config: %w", err)
 	}
 
-	// Optional region override
 	if region, ok := opts["region"]; ok {
 		cfg.Region = region
 	}
 
-	client := secretsmanager.NewFromConfig(cfg)
+	return newWithClient(secretsmanager.NewFromConfig(cfg), opts), nil
+}
 
+// newWithClient constructs an awsBackend with an injected client (used in tests).
+func newWithClient(client secretsManagerClient, opts map[string]string) *awsBackend {
 	prefix := ""
 	if p, ok := opts["prefix"]; ok {
 		prefix = p
@@ -56,11 +65,7 @@ func New(opts map[string]string) (*awsBackend, error) {
 			prefix += "/"
 		}
 	}
-
-	return &awsBackend{
-		client: client,
-		prefix: prefix,
-	}, nil
+	return &awsBackend{client: client, prefix: prefix}
 }
 
 // secretName returns the full AWS secret name for a namespace.
@@ -110,47 +115,43 @@ func (a *awsBackend) Set(namespace, key, value string) error {
 	ctx := context.Background()
 	secretName := a.secretName(namespace)
 
-	// Try to get existing secret first
 	existing := make(map[string]string)
-	result, err := a.client.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
+	secretExists := true
+
+	result, getErr := a.client.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
 		SecretId: &secretName,
 	})
-	if err == nil && result.SecretString != nil {
-		// Parse existing values
+	if getErr != nil {
+		var notFound *types.ResourceNotFoundException
+		if !isErrorType(getErr, notFound) {
+			return fmt.Errorf("aws get secret %s: %w", secretName, getErr)
+		}
+		secretExists = false
+	} else if result.SecretString != nil {
 		if err := json.Unmarshal([]byte(*result.SecretString), &existing); err != nil {
-			// Invalid JSON - start fresh
 			existing = make(map[string]string)
 		}
 	}
 
-	// Add/update the key
 	existing[key] = value
 
-	// Marshal updated data
 	jsonData, err := json.Marshal(existing)
 	if err != nil {
 		return fmt.Errorf("aws marshal secret %s: %w", secretName, err)
 	}
 	jsonStr := string(jsonData)
 
-	// Update existing or create new
-	if err != nil {
-		var notFound *types.ResourceNotFoundException
-		if isErrorType(err, notFound) {
-			// Create new secret
-			_, err = a.client.CreateSecret(ctx, &secretsmanager.CreateSecretInput{
-				Name:         &secretName,
-				SecretString: &jsonStr,
-			})
-			if err != nil {
-				return fmt.Errorf("aws create secret %s: %w", secretName, err)
-			}
-			return nil
+	if !secretExists {
+		_, err = a.client.CreateSecret(ctx, &secretsmanager.CreateSecretInput{
+			Name:         &secretName,
+			SecretString: &jsonStr,
+		})
+		if err != nil {
+			return fmt.Errorf("aws create secret %s: %w", secretName, err)
 		}
-		return fmt.Errorf("aws get secret %s: %w", secretName, err)
+		return nil
 	}
 
-	// Update existing secret
 	_, err = a.client.PutSecretValue(ctx, &secretsmanager.PutSecretValueInput{
 		SecretId:     &secretName,
 		SecretString: &jsonStr,
