@@ -101,6 +101,54 @@ When implementing a new backend:
 - This project is hosted on **Gitea**, not GitHub. Use the `tea` CLI or the Gitea API for issue, milestone, and release operations.
 - Remote: `ssh://git@git.dries.info/gerco/Envoke`
 - Do not use `gh` (GitHub CLI).
+- **Branch workflow**: Direct commits to main are not allowed. All changes must go through pull requests:
+  1. Create a feature branch: `git checkout -b feature/description`
+  2. Make changes and commit
+  3. Push branch and create PR via `tea pulls create` or Gitea web UI
+  4. Merge after review
+
+## macOS Code Signing
+
+On macOS, binaries accessing the keychain must be code-signed to avoid repeated permission prompts. This affects development builds (unsigned) but not properly signed release builds.
+
+### Creating a Self-Signed Certificate (Development)
+
+For development, create a self-signed code signing certificate:
+
+1. Open **Keychain Access** (`/Applications/Utilities/Keychain Access.app`)
+2. Go to **Keychain Access > Certificate Assistant > Create Certificate...**
+3. Enter:
+   - **Name**: `envoke-dev`
+   - **Identity Type**: Self Signed Root
+   - **Certificate Type**: Code Signing
+4. Click **Create**, then **Continue**
+5. Set **Trust Settings** for the certificate:
+   - Double-click the new certificate in Keychain Access
+   - Expand **Trust** section
+   - Set **Code Signing** to: **Always Trust**
+6. Close Keychain Access (admin password required)
+
+### Signing During Development
+
+Use the justfile recipes:
+
+```bash
+just develop      # build + sign with self-signed cert
+just sign-dev     # sign existing binary
+```
+
+### For Distribution (Developer ID)
+
+Releases should be signed with an Apple Developer ID certificate:
+
+```bash
+just sign-release
+```
+
+This requires:
+- Apple Developer account ($99/year)
+- Developer ID Application certificate
+- Notarytool profile configured in Keychain
 
 ## Code Style
 
