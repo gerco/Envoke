@@ -7,7 +7,6 @@ import (
 	"maps"
 	"os"
 	"os/exec"
-	"syscall"
 
 	"git.dries.info/gerco/envoke/internal/backend"
 	"git.dries.info/gerco/envoke/internal/config"
@@ -40,9 +39,9 @@ func Run(cfg *config.Loaded, args []string) (int, error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	// Run the subprocess in a new process group so signals (Ctrl-C, Ctrl-Z)
-	// go to the child, not envoke. This is standard behavior for wrapper tools.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Run the subprocess in a new process group (Unix) or create new console (Windows)
+	// so signals go to the child, not envoke. This is standard behavior for wrapper tools.
+	setSysProcAttr(cmd)
 
 	if err := cmd.Run(); err != nil {
 		if exit, ok := err.(*exec.ExitError); ok {

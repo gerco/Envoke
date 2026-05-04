@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	dotfileName      = ".envoke"
+	dotfileName       = ".envoke"
 	localOverrideName = ".envoke.local"
 	globalConfigName  = "config.toml"
 	appDirName        = "envoke"
@@ -45,7 +45,7 @@ func Load(projectDir string) (*Loaded, error) {
 // loadGlobal reads ~/.config/envoke/config.toml (XDG on Linux/macOS,
 // %APPDATA%\envoke\config.toml on Windows).
 func loadGlobal() (GlobalConfig, error) {
-	path, err := globalConfigPath()
+	path, err := GlobalConfigPath()
 	if err != nil {
 		return GlobalConfig{}, err
 	}
@@ -71,7 +71,10 @@ func applyDefaults(cfg *GlobalConfig) {
 	}
 }
 
-func globalConfigPath() (string, error) {
+// GlobalConfigPath returns the path to the global configuration file.
+// On Windows: %APPDATA%\envoke\config.toml
+// On Unix: $XDG_CONFIG_HOME/envoke/config.toml or ~/.config/envoke/config.toml
+func GlobalConfigPath() (string, error) {
 	if runtime.GOOS == "windows" {
 		appData := os.Getenv("APPDATA")
 		if appData == "" {
