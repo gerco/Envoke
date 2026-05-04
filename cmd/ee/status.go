@@ -38,8 +38,12 @@ var statusCmd = &cobra.Command{
 		sort.Strings(defaultBackends)
 
 		for _, name := range defaultBackends {
-			status := getBackendHint(name)
-			fmt.Fprintf(w, "  [implicit] %s\t%s\n", name, status)
+			available, reason := checkBackendAvailability(name)
+			if available {
+				fmt.Fprintf(w, "  [implicit] %s\t✓ available\n", name)
+			} else {
+				fmt.Fprintf(w, "  [implicit] %s\t✗ not available (%s)\n", name, reason)
+			}
 		}
 		w.Flush()
 
@@ -74,21 +78,45 @@ var statusCmd = &cobra.Command{
 	},
 }
 
-// getBackendHint returns a hint about what the backend needs to work.
-func getBackendHint(name string) string {
+// checkBackendAvailability checks if a backend is available based on env vars.
+// Returns (true, "") if available, (false, reason) if not.
+func checkBackendAvailability(name string) (bool, string) {
 	switch name {
-	case "aws":
-		return "(needs AWS credentials)"
 	case "keychain":
-		return "(always available)"
+		// Keychain is always available on macOS/Windows
+		// On Linux it depends on Secret Service, but we can't quickly check that
+		return true, ""
+	case "aws":
+		// Check for AWS credentials via env vars or config file indicator
+		if os.Getenv("AWS_ACCESS_KEY_ID") != "" {
+			return true, ""
+		}
+		if os.Getenv("AWS_PROFILE") != "" {
+			return true, ""
+		}
+		if os.Getenv("AWS_SDK_LOAD_CONFIG") != "" {
+			return true, ""
+		}
+		// Check for config file existence would require file system access
+		// For now, assume credentials might be in ~/.aws/credentials
+		return false, "needs AWS_ACCESS_KEY_ID or AWS_PROFILE or ~/.aws/credentials"
 	case "1password":
-		return "(needs OP_SERVICE_ACCOUNT_TOKEN)"
+		if os.Getenv("OP_SERVICE_ACCOUNT_TOKEN") != "" {
+			return true, ""
+		}
+		return false, "needs OP_SERVICE_ACCOUNT_TOKEN"
 	case "keeper":
-		return "(needs KSM_CONFIG)"
+		if os.Getenv("KSM_CONFIG") != "" {
+			return true, ""
+		}
+		return false, "needs KSM_CONFIG"
 	case "jumpcloud":
-		return "(needs JUMPCLOUD_API_KEY)"
+		if os.Getenv("JUMPCLOUD_API_KEY") != "" {
+			return true, ""
+		}
+		return false, "needs JUMPCLOUD_API_KEY"
 	default:
-		return ""
+		return false, "unknown backend"
 	}
 }
 
