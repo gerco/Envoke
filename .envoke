@@ -1,0 +1,7 @@
+[[namespace]]
+name = "test-ns"
+backend = "local"
+
+[[namespace]]
+name = "keeper"
+backend = "keeper"

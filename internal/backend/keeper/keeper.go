@@ -1,5 +1,11 @@
-// Package keeper will implement the Keeper Secrets Manager backend.
-// This is a stub that returns ErrNotImplemented until the SDK integration is built.
+//go:build keeper
+// +build keeper
+
+// Package keeper is a stub for the Keeper Commander Service Mode backend.
+// Build with -tags keeper to include this backend.
+//
+// TODO: Implement full Keeper Commander Service Mode integration.
+// See: https://git.dries.info/gerco/Envoke/issues/8
 package keeper
 
 import (
@@ -16,6 +22,6 @@ func init() {
 
 type keeperBackend struct{}
 
-func (k *keeperBackend) Get(_, _ string) (string, error)        { return "", backend.ErrNotImplemented }
-func (k *keeperBackend) Set(_, _, _ string) error               { return backend.ErrNotImplemented }
-func (k *keeperBackend) List(_ string) ([]string, error)        { return nil, backend.ErrNotImplemented }
+func (k *keeperBackend) Get(_, _ string) (string, error) { return "", backend.ErrNotImplemented }
+func (k *keeperBackend) Set(_, _, _ string) error        { return backend.ErrNotImplemented }
+func (k *keeperBackend) List(_ string) ([]string, error) { return nil, backend.ErrNotImplemented }
