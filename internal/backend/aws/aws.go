@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"git.dries.info/gerco/envoke/internal/backend"
@@ -27,7 +28,24 @@ func init() {
 		return New(opts)
 	})
 	// Register as default (zero-config) factory using SDK default credential chain
-	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend)
+	// Provide fast check function that just looks at env vars (no network calls)
+	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, checkAWSAvailable)
+}
+
+// checkAWSAvailable does a fast check for AWS credentials without network calls.
+func checkAWSAvailable() (bool, string) {
+	// Check environment variables first (fast)
+	if os.Getenv("AWS_ACCESS_KEY_ID") != "" && os.Getenv("AWS_SECRET_ACCESS_KEY") != "" {
+		return true, ""
+	}
+	if os.Getenv("AWS_PROFILE") != "" {
+		return true, ""
+	}
+	if os.Getenv("AWS_SDK_LOAD_CONFIG") != "" {
+		return true, ""
+	}
+	// Don't check files or make network calls - just report what's needed
+	return false, "needs AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY, or AWS_PROFILE, or AWS_SDK_LOAD_CONFIG"
 }
 
 // secretsManagerClient is the subset of secretsmanager.Client used by awsBackend.

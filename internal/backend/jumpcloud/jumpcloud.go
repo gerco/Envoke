@@ -17,7 +17,15 @@ func init() {
 		return &jumpcloudBackend{}, nil
 	})
 	// Register as default (zero-config) factory using JUMPCLOUD_API_KEY env var
-	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend)
+	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, checkJumpCloudAvailable)
+}
+
+// checkJumpCloudAvailable does a fast check for JumpCloud env var.
+func checkJumpCloudAvailable() (bool, string) {
+	if os.Getenv("JUMPCLOUD_API_KEY") != "" {
+		return true, ""
+	}
+	return false, "needs JUMPCLOUD_API_KEY"
 }
 
 type jumpcloudBackend struct{}

@@ -21,7 +21,8 @@ func init() {
 		return New(opts)
 	})
 	// Register as default (zero-config) factory - always available
-	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend)
+	// Pass nil for check func since NewDefaultBackend is fast (just returns struct)
+	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, nil)
 }
 
 // keychainBackend stores a keyring.Keyring opened per namespace on first use.

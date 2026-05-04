@@ -23,7 +23,15 @@ func init() {
 		return &keeperBackend{}, nil
 	})
 	// Register as default (zero-config) factory using KSM_CONFIG env var
-	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend)
+	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, checkKeeperAvailable)
+}
+
+// checkKeeperAvailable does a fast check for Keeper env var.
+func checkKeeperAvailable() (bool, string) {
+	if os.Getenv("KSM_CONFIG") != "" {
+		return true, ""
+	}
+	return false, "needs KSM_CONFIG"
 }
 
 type keeperBackend struct{}

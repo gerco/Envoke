@@ -28,7 +28,15 @@ func init() {
 		return New(token)
 	})
 	// Register as default (zero-config) factory using OP_SERVICE_ACCOUNT_TOKEN env var
-	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend)
+	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, check1PasswordAvailable)
+}
+
+// check1PasswordAvailable does a fast check for 1Password env var.
+func check1PasswordAvailable() (bool, string) {
+	if os.Getenv("OP_SERVICE_ACCOUNT_TOKEN") != "" {
+		return true, ""
+	}
+	return false, "needs OP_SERVICE_ACCOUNT_TOKEN"
 }
 
 // opBackend implements the envoke backend interface for 1Password.

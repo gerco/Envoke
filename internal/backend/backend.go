@@ -30,6 +30,11 @@ type Factory func(opts map[string]string) (Backend, error)
 // Returns an error if the backend cannot be initialized (e.g., missing credentials).
 type DefaultFactory func() (Backend, error)
 
+// CheckFunc quickly checks if a backend is available without heavy operations.
+// Returns (available, reason) where reason explains why not if unavailable.
+// Backends decide whether to do fast checks (env vars) or just return what they need.
+type CheckFunc func() (available bool, reason string)
+
 var registry = map[string]Factory{}
 
 // Register associates name with factory. Called from each backend's init().
@@ -67,6 +72,7 @@ type ExplicitConfig struct {
 type Registry struct {
 	mu             sync.RWMutex
 	defaults       map[string]DefaultFactory // provider name -> zero-config factory
+	checks         map[string]CheckFunc      // provider name -> fast check function
 	explicit       map[string]Backend        // created explicit backends (cached)
 	explicitConfig map[string]ExplicitConfig // explicit backend configs (for lazy creation)
 }
@@ -74,16 +80,22 @@ type Registry struct {
 // DefaultRegistry is the global registry instance.
 var DefaultRegistry = &Registry{
 	defaults:       make(map[string]DefaultFactory),
+	checks:         make(map[string]CheckFunc),
 	explicit:       make(map[string]Backend),
 	explicitConfig: make(map[string]ExplicitConfig),
 }
 
 // RegisterDefault allows backends to self-register as zero-config providers.
 // The factory should return (nil, error) if zero-config is not possible.
-func (r *Registry) RegisterDefault(providerName string, factory DefaultFactory) {
+// The check function should be fast (just env var checks, no network calls).
+// If check is nil, the factory will be used for availability checks (slower).
+func (r *Registry) RegisterDefault(providerName string, factory DefaultFactory, check CheckFunc) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.defaults[providerName] = factory
+	if check != nil {
+		r.checks[providerName] = check
+	}
 }
 
 // RegisterExplicit registers a pre-created configured backend from config file.
@@ -198,16 +210,23 @@ func (r *Registry) ExplicitNames() []string {
 
 // CheckDefault tests if a default backend is available.
 // Returns (available, reason) where reason is empty string if available.
-// The factory function decides what "available" means (env vars set, etc.)
+// Uses the fast CheckFunc if registered, otherwise calls the factory (slower).
 func (r *Registry) CheckDefault(name string) (bool, string) {
 	r.mu.RLock()
-	factory, ok := r.defaults[name]
+	check, hasCheck := r.checks[name]
+	factory, hasFactory := r.defaults[name]
 	r.mu.RUnlock()
 
-	if !ok {
+	if !hasFactory {
 		return false, "not registered"
 	}
 
+	// Use fast check function if available
+	if hasCheck {
+		return check()
+	}
+
+	// Fall back to calling the factory (slower, but works for simple backends)
 	_, err := factory()
 	if err != nil {
 		return false, err.Error()
