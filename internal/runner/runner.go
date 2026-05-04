@@ -92,17 +92,11 @@ func fetchSecrets(cfg *config.Loaded) (map[string]string, error) {
 	result := make(map[string]string)
 
 	for _, ns := range cfg.Namespaces {
-		bc := cfg.Global.BackendByName(ns.Backend)
-		if bc == nil {
-			return nil, fmt.Errorf("namespace %q references unknown backend %q (not declared in global config)", ns.Name, ns.Backend)
-		}
-
-		// Merge global backend options with namespace-level overrides.
-		opts := mergeOpts(bc.Options, ns.Options)
-
-		b, err := backend.New(bc.Type, opts)
+		// Use registry to resolve backend - supports both implicit (zero-config)
+		// and explicit (configured) backends
+		b, err := backend.DefaultRegistry.Resolve(ns.Backend)
 		if err != nil {
-			return nil, fmt.Errorf("backend %q: %w", ns.Backend, err)
+			return nil, fmt.Errorf("namespace %q references backend %q: %w", ns.Name, ns.Backend, err)
 		}
 
 		keys, err := b.List(ns.Name)
@@ -119,14 +113,4 @@ func fetchSecrets(cfg *config.Loaded) (map[string]string, error) {
 		}
 	}
 	return result, nil
-}
-
-func mergeOpts(base, override map[string]string) map[string]string {
-	if len(base) == 0 && len(override) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(base)+len(override))
-	maps.Copy(out, base)
-	maps.Copy(out, override)
-	return out
 }

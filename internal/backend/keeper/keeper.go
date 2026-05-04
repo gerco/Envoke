@@ -9,18 +9,41 @@
 package keeper
 
 import (
+	"fmt"
+	"os"
+
 	"git.dries.info/gerco/envoke/internal/backend"
 )
 
 const backendName = "keeper"
 
 func init() {
+	// Register as explicit factory (with options from config)
 	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
 		return &keeperBackend{}, nil
 	})
+	// Register as default (zero-config) factory using KSM_CONFIG env var
+	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, checkKeeperAvailable)
+}
+
+// checkKeeperAvailable does a fast check for Keeper env var.
+func checkKeeperAvailable() (bool, string) {
+	if os.Getenv("KSM_CONFIG") != "" {
+		return true, ""
+	}
+	return false, "KSM_CONFIG"
 }
 
 type keeperBackend struct{}
+
+// NewDefaultBackend creates a Keeper backend with zero configuration.
+// Requires KSM_CONFIG environment variable to be set.
+func NewDefaultBackend() (backend.Backend, error) {
+	if os.Getenv("KSM_CONFIG") == "" {
+		return nil, fmt.Errorf("KSM_CONFIG not set")
+	}
+	return &keeperBackend{}, nil
+}
 
 func (k *keeperBackend) Get(_, _ string) (string, error) { return "", backend.ErrNotImplemented }
 func (k *keeperBackend) Set(_, _, _ string) error        { return backend.ErrNotImplemented }

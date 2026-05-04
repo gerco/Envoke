@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"git.dries.info/gerco/envoke/internal/backend"
@@ -22,9 +23,29 @@ import (
 const backendName = "aws"
 
 func init() {
+	// Register as explicit factory (with options from config)
 	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
 		return New(opts)
 	})
+	// Register as default (zero-config) factory using SDK default credential chain
+	// Provide fast check function that just looks at env vars (no network calls)
+	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, checkAWSAvailable)
+}
+
+// checkAWSAvailable does a fast check for AWS credentials without network calls.
+func checkAWSAvailable() (bool, string) {
+	// Check environment variables first (fast)
+	if os.Getenv("AWS_ACCESS_KEY_ID") != "" && os.Getenv("AWS_SECRET_ACCESS_KEY") != "" {
+		return true, ""
+	}
+	if os.Getenv("AWS_PROFILE") != "" {
+		return true, ""
+	}
+	if os.Getenv("AWS_SDK_LOAD_CONFIG") != "" {
+		return true, ""
+	}
+	// Don't check files or make network calls - just report what's needed
+	return false, "AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY, or AWS_PROFILE, or AWS_SDK_LOAD_CONFIG"
 }
 
 // secretsManagerClient is the subset of secretsmanager.Client used by awsBackend.
@@ -38,6 +59,7 @@ type secretsManagerClient interface {
 type awsBackend struct {
 	client secretsManagerClient
 	prefix string // optional prefix for secret names (e.g., "envoke/")
+	region string // AWS region (for display/info purposes)
 }
 
 // New creates an AWS Secrets Manager backend with the given options.
@@ -54,6 +76,28 @@ func New(opts map[string]string) (*awsBackend, error) {
 	}
 
 	return newWithClient(secretsmanager.NewFromConfig(cfg), opts), nil
+}
+
+// NewDefaultBackend creates an AWS Secrets Manager backend with SDK default credential chain.
+// Uses: env vars → ~/.aws/credentials → ~/.aws/config → IAM role.
+// Returns (nil, error) if credentials are unavailable (checked without making API calls).
+func NewDefaultBackend() (backend.Backend, error) {
+	ctx := context.Background()
+
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("aws config: %w", err)
+	}
+
+	// Check credentials exist without making an API call
+	// This retrieves credentials from the chain without validating them remotely
+	_, err = cfg.Credentials.Retrieve(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("aws credentials not available: %w", err)
+	}
+
+	client := secretsmanager.NewFromConfig(cfg)
+	return &awsBackend{client: client, prefix: "", region: cfg.Region}, nil
 }
 
 // newWithClient constructs an awsBackend with an injected client (used in tests).

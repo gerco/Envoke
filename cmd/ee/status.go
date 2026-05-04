@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -17,44 +18,83 @@ func init() {
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show backend health for the current project",
+	Short: "Show backend health and availability for the current project",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		cfg, err := config.Load(projectDir)
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
 		}
 
-		globalPath, _ := config.GlobalConfigPath()
-		if globalPath == "" {
-			globalPath = "(unknown)"
+		// Show all backends table
+		fmt.Fprintln(os.Stderr, "Backends:")
+		w := tabwriter.NewWriter(os.Stderr, 0, 0, 3, ' ', 0)
+		fmt.Fprintln(w, "NAME\tTYPE\tSTATUS")
+		fmt.Fprintln(w, "────\t────\t──────")
+
+		// Collect and sort all backend names
+		allBackends := make(map[string]struct {
+			typ    string
+			status string
+		})
+
+		// Add implicit (default) backends
+		for _, name := range backend.DefaultRegistry.DefaultNames() {
+			available, reason := backend.DefaultRegistry.CheckDefault(name)
+			status := "✓ available"
+			if !available {
+				status = fmt.Sprintf("✗ needs %s", reason)
+			}
+			allBackends[name] = struct {
+				typ    string
+				status string
+			}{typ: "implicit", status: status}
 		}
 
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "NAMESPACE\tBACKEND\tSTATUS\tCONFIG")
-		fmt.Fprintln(w, "─────────\t───────\t──────\t──────")
+		// Add explicit backends from config
+		for _, bc := range cfg.Global.Backends {
+			allBackends[bc.Name] = struct {
+				typ    string
+				status string
+			}{typ: "explicit", status: fmt.Sprintf("(%s)", bc.Type)}
+		}
+
+		// Sort and print
+		names := make([]string, 0, len(allBackends))
+		for name := range allBackends {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+
+		for _, name := range names {
+			b := allBackends[name]
+			fmt.Fprintf(w, "%s\t%s\t%s\n", name, b.typ, b.status)
+		}
+		w.Flush()
+
+		// Show namespace status
+		fmt.Fprintln(os.Stderr, "\nProject namespaces:")
+		w = tabwriter.NewWriter(os.Stderr, 0, 0, 3, ' ', 0)
+		fmt.Fprintln(w, "NAMESPACE\tBACKEND\tSTATUS")
+		fmt.Fprintln(w, "─────────\t───────\t──────")
 
 		for _, ns := range cfg.Namespaces {
-			status, configSource := checkNamespace(cfg, ns, globalPath)
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", ns.Name, ns.Backend, status, configSource)
+			status := checkNamespaceStatus(ns)
+			fmt.Fprintf(w, "%s\t%s\t%s\n", ns.Name, ns.Backend, status)
 		}
+
+		if len(cfg.Namespaces) == 0 {
+			fmt.Fprintln(w, "(none)\t\t")
+		}
+
 		return w.Flush()
 	},
 }
 
-func checkNamespace(cfg *config.Loaded, ns config.Namespace, globalPath string) (string, string) {
-	bc := cfg.Global.BackendByName(ns.Backend)
-	if bc == nil {
-		return "✗ backend not configured", globalPath
-	}
-
-	b, err := backend.New(bc.Type, mergeOpts(bc.Options, ns.Options))
+// checkNamespaceStatus checks if a namespace's backend can be resolved.
+func checkNamespaceStatus(ns config.Namespace) string {
+	_, err := backend.DefaultRegistry.Resolve(ns.Backend)
 	if err != nil {
-		return fmt.Sprintf("✗ %s", err), globalPath
+		return fmt.Sprintf("✗ %s", err)
 	}
-
-	_, err = b.List(ns.Name)
-	if err != nil {
-		return fmt.Sprintf("✗ %s", err), globalPath
-	}
-	return "✓ ok", globalPath
+	return "✓ ok"
 }

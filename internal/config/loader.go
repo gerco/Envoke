@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"git.dries.info/gerco/envoke/internal/backend"
 	"github.com/BurntSushi/toml"
 )
 
@@ -26,6 +27,10 @@ func Load(projectDir string) (*Loaded, error) {
 		return nil, fmt.Errorf("global config: %w", err)
 	}
 
+	// Register explicit backends from global config with the registry
+	// This is done lazily - backends are created on first Resolve() call
+	registerExplicitBackendConfigs(global)
+
 	base, err := loadDotfile(filepath.Join(projectDir, dotfileName))
 	if err != nil {
 		return nil, fmt.Errorf("dotfile: %w", err)
@@ -40,6 +45,14 @@ func Load(projectDir string) (*Loaded, error) {
 		Global:     global,
 		Namespaces: merge(base, local),
 	}, nil
+}
+
+// registerExplicitBackendConfigs stores backend configs in the registry for lazy creation.
+// This allows config loading to succeed even if backend packages aren't imported yet.
+func registerExplicitBackendConfigs(global GlobalConfig) {
+	for _, bc := range global.Backends {
+		backend.DefaultRegistry.RegisterExplicitConfig(bc.Name, bc.Type, bc.Options)
+	}
 }
 
 // loadGlobal reads ~/.config/envoke/config.toml (XDG on Linux/macOS,
@@ -58,17 +71,10 @@ func loadGlobal() (GlobalConfig, error) {
 	return cfg, nil
 }
 
-// applyDefaults injects built-in backend configurations that are always
-// available without any user configuration. User-declared entries with the
-// same name take precedence and are left untouched.
+// applyDefaults injects built-in backend configurations.
+// This is now empty since keychain is always available as an implicit default backend.
 func applyDefaults(cfg *GlobalConfig) {
-	// "local" is always available and maps to the OS keychain.
-	if cfg.BackendByName("local") == nil {
-		cfg.Backends = append(cfg.Backends, BackendConfig{
-			Name: "local",
-			Type: "keychain",
-		})
-	}
+	// No defaults needed - keychain backend is always available via the registry.
 }
 
 // GlobalConfigPath returns the path to the global configuration file.

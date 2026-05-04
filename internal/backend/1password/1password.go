@@ -9,15 +9,17 @@ package onepassword
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
-	"github.com/1password/onepassword-sdk-go"
 	"git.dries.info/gerco/envoke/internal/backend"
+	"github.com/1password/onepassword-sdk-go"
 )
 
 const backendName = "1password"
 
 func init() {
+	// Register as explicit factory (with token from config options)
 	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
 		token, ok := opts["token"]
 		if !ok {
@@ -25,6 +27,16 @@ func init() {
 		}
 		return New(token)
 	})
+	// Register as default (zero-config) factory using OP_SERVICE_ACCOUNT_TOKEN env var
+	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, check1PasswordAvailable)
+}
+
+// check1PasswordAvailable does a fast check for 1Password env var.
+func check1PasswordAvailable() (bool, string) {
+	if os.Getenv("OP_SERVICE_ACCOUNT_TOKEN") != "" {
+		return true, ""
+	}
+	return false, "OP_SERVICE_ACCOUNT_TOKEN"
 }
 
 // opBackend implements the envoke backend interface for 1Password.
@@ -42,6 +54,16 @@ func New(token string) (*opBackend, error) {
 		return nil, fmt.Errorf("1password client init: %w", err)
 	}
 	return &opBackend{client: client}, nil
+}
+
+// NewDefaultBackend creates a 1Password backend with zero configuration.
+// Requires OP_SERVICE_ACCOUNT_TOKEN environment variable to be set.
+func NewDefaultBackend() (backend.Backend, error) {
+	token := os.Getenv("OP_SERVICE_ACCOUNT_TOKEN")
+	if token == "" {
+		return nil, fmt.Errorf("OP_SERVICE_ACCOUNT_TOKEN not set")
+	}
+	return New(token)
 }
 
 // Get retrieves a secret from 1Password.
