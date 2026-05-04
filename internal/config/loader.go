@@ -71,17 +71,10 @@ func loadGlobal() (GlobalConfig, error) {
 	return cfg, nil
 }
 
-// applyDefaults injects built-in backend configurations that are always
-// available without any user configuration. User-declared entries with the
-// same name take precedence and are left untouched.
+// applyDefaults injects built-in backend configurations.
+// This is now empty since keychain is always available as an implicit default backend.
 func applyDefaults(cfg *GlobalConfig) {
-	// "local" is always available and maps to the OS keychain.
-	if cfg.BackendByName("local") == nil {
-		cfg.Backends = append(cfg.Backends, BackendConfig{
-			Name: "local",
-			Type: "keychain",
-		})
-	}
+	// No defaults needed - keychain backend is always available via the registry.
 }
 
 // GlobalConfigPath returns the path to the global configuration file.

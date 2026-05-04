@@ -122,19 +122,17 @@ func TestMerge_EmptyLocal(t *testing.T) {
 	}
 }
 
-func TestLoad_LocalBackendAlwaysPresent(t *testing.T) {
+func TestLoad_NoDefaultLocalBackendInjected(t *testing.T) {
 	dir := t.TempDir()
-	// No global config, no dotfile — local backend should still be injected.
+	// No global config, no dotfile — no default 'local' backend should be injected.
+	// The keychain implicit backend is available via the registry instead.
 	cfg, err := Load(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	bc := cfg.Global.BackendByName("local")
-	if bc == nil {
-		t.Fatal("expected 'local' backend to be present by default")
-	}
-	if bc.Type != "keychain" {
-		t.Errorf("expected type=keychain, got %q", bc.Type)
+	if bc != nil {
+		t.Error("expected 'local' backend to NOT be injected by default (use implicit 'keychain' instead)")
 	}
 }
 
