@@ -25,7 +25,7 @@ func checkJumpCloudAvailable() (bool, string) {
 	if os.Getenv("JUMPCLOUD_API_KEY") != "" {
 		return true, ""
 	}
-	return false, "needs JUMPCLOUD_API_KEY"
+	return false, "JUMPCLOUD_API_KEY"
 }
 
 type jumpcloudBackend struct{}

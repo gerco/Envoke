@@ -45,7 +45,7 @@ func checkAWSAvailable() (bool, string) {
 		return true, ""
 	}
 	// Don't check files or make network calls - just report what's needed
-	return false, "needs AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY, or AWS_PROFILE, or AWS_SDK_LOAD_CONFIG"
+	return false, "AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY, or AWS_PROFILE, or AWS_SDK_LOAD_CONFIG"
 }
 
 // secretsManagerClient is the subset of secretsmanager.Client used by awsBackend.

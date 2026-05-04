@@ -25,39 +25,51 @@ var statusCmd = &cobra.Command{
 			return fmt.Errorf("load config: %w", err)
 		}
 
-		globalPath, _ := config.GlobalConfigPath()
-		if globalPath == "" {
-			globalPath = "(unknown)"
+		// Show all backends table
+		fmt.Fprintln(os.Stderr, "Backends:")
+		w := tabwriter.NewWriter(os.Stderr, 0, 0, 3, ' ', 0)
+		fmt.Fprintln(w, "NAME\tTYPE\tSTATUS")
+		fmt.Fprintln(w, "────\t────\t──────")
+
+		// Collect and sort all backend names
+		allBackends := make(map[string]struct {
+			typ    string
+			status string
+		})
+
+		// Add implicit (default) backends
+		for _, name := range backend.DefaultRegistry.DefaultNames() {
+			available, reason := backend.DefaultRegistry.CheckDefault(name)
+			status := "✓ available"
+			if !available {
+				status = fmt.Sprintf("✗ needs %s", reason)
+			}
+			allBackends[name] = struct {
+				typ    string
+				status string
+			}{typ: "implicit", status: status}
 		}
 
-		// Show available (implicit/default) backends
-		fmt.Fprintln(os.Stderr, "Available backends (zero-config, can reference directly in namespace config):")
-		w := tabwriter.NewWriter(os.Stderr, 0, 0, 3, ' ', 0)
+		// Add explicit backends from config
+		for _, bc := range cfg.Global.Backends {
+			allBackends[bc.Name] = struct {
+				typ    string
+				status string
+			}{typ: "explicit", status: fmt.Sprintf("(%s)", bc.Type)}
+		}
 
-		defaultBackends := backend.DefaultRegistry.DefaultNames()
-		sort.Strings(defaultBackends)
+		// Sort and print
+		names := make([]string, 0, len(allBackends))
+		for name := range allBackends {
+			names = append(names, name)
+		}
+		sort.Strings(names)
 
-		for _, name := range defaultBackends {
-			available, reason := backend.DefaultRegistry.CheckDefault(name)
-			if available {
-				fmt.Fprintf(w, "  [implicit] %s\t✓ available\n", name)
-			} else {
-				fmt.Fprintf(w, "  [implicit] %s\t✗ not available (%s)\n", name, reason)
-			}
+		for _, name := range names {
+			b := allBackends[name]
+			fmt.Fprintf(w, "%s\t%s\t%s\n", name, b.typ, b.status)
 		}
 		w.Flush()
-
-		// Show configured (explicit) backends
-		if len(cfg.Global.Backends) > 0 {
-			fmt.Fprintf(os.Stderr, "\nConfigured backends (from %s):\n", globalPath)
-			w = tabwriter.NewWriter(os.Stderr, 0, 0, 3, ' ', 0)
-			for _, bc := range cfg.Global.Backends {
-				fmt.Fprintf(w, "  [explicit] %s\t(%s)\n", bc.Name, bc.Type)
-			}
-			w.Flush()
-		} else {
-			fmt.Fprintf(os.Stderr, "\nNo explicit backend configurations found in %s\n", globalPath)
-		}
 
 		// Show namespace status
 		fmt.Fprintln(os.Stderr, "\nProject namespaces:")

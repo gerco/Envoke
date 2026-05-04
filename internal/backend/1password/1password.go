@@ -36,7 +36,7 @@ func check1PasswordAvailable() (bool, string) {
 	if os.Getenv("OP_SERVICE_ACCOUNT_TOKEN") != "" {
 		return true, ""
 	}
-	return false, "needs OP_SERVICE_ACCOUNT_TOKEN"
+	return false, "OP_SERVICE_ACCOUNT_TOKEN"
 }
 
 // opBackend implements the envoke backend interface for 1Password.

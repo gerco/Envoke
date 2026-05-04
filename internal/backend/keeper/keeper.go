@@ -31,7 +31,7 @@ func checkKeeperAvailable() (bool, string) {
 	if os.Getenv("KSM_CONFIG") != "" {
 		return true, ""
 	}
-	return false, "needs KSM_CONFIG"
+	return false, "KSM_CONFIG"
 }
 
 type keeperBackend struct{}
