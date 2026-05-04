@@ -16,9 +16,12 @@ import (
 const backendName = "keychain"
 
 func init() {
+	// Register as explicit factory (with options from config)
 	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
 		return New(opts)
 	})
+	// Register as default (zero-config) factory - always available
+	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend)
 }
 
 // keychainBackend stores a keyring.Keyring opened per namespace on first use.
@@ -29,6 +32,15 @@ type keychainBackend struct {
 // New creates a keychain backend. opts is unused for now but reserved for
 // future options (e.g. custom service name prefix).
 func New(_ map[string]string) (*keychainBackend, error) {
+	return &keychainBackend{rings: make(map[string]keyring.Keyring)}, nil
+}
+
+// NewDefaultBackend creates a keychain backend with zero configuration.
+// On macOS and Windows, this is always available.
+// On Linux, availability depends on Secret Service (checked when first used).
+func NewDefaultBackend() (backend.Backend, error) {
+	// Always return the backend - actual availability is determined when used.
+	// This avoids slow checks during status/commands.
 	return &keychainBackend{rings: make(map[string]keyring.Keyring)}, nil
 }
 

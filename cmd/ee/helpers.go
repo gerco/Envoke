@@ -7,27 +7,26 @@ import (
 	"git.dries.info/gerco/envoke/internal/config"
 )
 
-// resolveBackend returns the BackendConfig for namespaceName by consulting the
-// dotfile mapping first, then falling back to the always-present "local" backend.
-func resolveBackend(cfg *config.Loaded, namespaceName string) *config.BackendConfig {
+// getBackendName returns the backend name for namespaceName from the dotfile.
+func getBackendName(cfg *config.Loaded, namespaceName string) string {
 	for _, ns := range cfg.Namespaces {
 		if ns.Name == namespaceName {
-			return cfg.Global.BackendByName(ns.Backend)
+			return ns.Backend
 		}
 	}
-	return cfg.Global.BackendByName("local")
+	// Default to keychain if namespace not found
+	return "keychain"
 }
 
-// openBackend resolves and opens the backend for namespaceName.
+// openBackend resolves and opens the backend for namespaceName using the registry.
+// The registry handles the priority: explicit configuration > default (zero-config) factory.
 func openBackend(cfg *config.Loaded, namespaceName string) (backend.Backend, error) {
-	bc := resolveBackend(cfg, namespaceName)
-	if bc == nil {
-		// resolveBackend only returns nil if "local" is somehow absent, which
-		// should never happen after applyDefaults runs.
-		return nil, backend.ErrNotFound
-	}
-	ns := namespaceOpts(cfg, namespaceName)
-	return backend.New(bc.Type, mergeOpts(bc.Options, ns))
+	backendName := getBackendName(cfg, namespaceName)
+
+	// Registry.Resolve handles both explicit and default backends
+	// Explicit backends are registered during config.Load()
+	// Default backends are registered via init() in each backend package
+	return backend.DefaultRegistry.Resolve(backendName)
 }
 
 // namespaceOpts returns the Options map for a namespace declared in the dotfile,

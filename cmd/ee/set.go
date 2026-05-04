@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
 	"git.dries.info/gerco/envoke/internal/backend"
 	"git.dries.info/gerco/envoke/internal/config"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func init() {
@@ -48,28 +48,21 @@ Examples:
 		// Check for --backend flag
 		backendName, _ := cmd.Flags().GetString("backend")
 
-		var bc *config.BackendConfig
+		var b backend.Backend
 		if backendName != "" {
-			// Use specified backend
-			bc = cfg.Global.BackendByName(backendName)
-			if bc == nil {
-				return fmt.Errorf("backend %q not configured", backendName)
+			// Use specified backend via registry (handles explicit + default)
+			b, err = backend.DefaultRegistry.Resolve(backendName)
+			if err != nil {
+				return fmt.Errorf("backend %q: %w", backendName, err)
 			}
 		} else {
-			// Use namespace lookup
-			bc = resolveBackend(cfg, namespace)
-			if bc == nil {
-				return fmt.Errorf("no backend available for namespace %q, use --backend to specify", namespace)
+			// Use namespace lookup via registry
+			b, err = openBackend(cfg, namespace)
+			if err != nil {
+				return fmt.Errorf("no backend available for namespace %q, use --backend to specify: %w", namespace, err)
 			}
-			backendName = bc.Name
-		}
-
-		// Open the backend with options
-		ns := namespaceOpts(cfg, namespace)
-	opts := mergeOpts(bc.Options, ns)
-		b, err := backend.New(bc.Type, opts)
-		if err != nil {
-			return fmt.Errorf("open backend %q: %w", bc.Name, err)
+			// Get the backend name for this namespace
+			backendName = getBackendName(cfg, namespace)
 		}
 
 		if err := b.Set(namespace, key, value); err != nil {
