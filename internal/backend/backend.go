@@ -196,6 +196,25 @@ func (r *Registry) ExplicitNames() []string {
 	return names
 }
 
+// CheckDefault tests if a default backend is available.
+// Returns (available, reason) where reason is empty string if available.
+// The factory function decides what "available" means (env vars set, etc.)
+func (r *Registry) CheckDefault(name string) (bool, string) {
+	r.mu.RLock()
+	factory, ok := r.defaults[name]
+	r.mu.RUnlock()
+
+	if !ok {
+		return false, "not registered"
+	}
+
+	_, err := factory()
+	if err != nil {
+		return false, err.Error()
+	}
+	return true, ""
+}
+
 // CheckExplicit tests if an explicit backend can be created.
 // Returns (true, nil) if available, (false, error) with details if not.
 func (r *Registry) CheckExplicit(name string) (bool, error) {

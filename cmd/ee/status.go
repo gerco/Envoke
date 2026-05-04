@@ -38,7 +38,7 @@ var statusCmd = &cobra.Command{
 		sort.Strings(defaultBackends)
 
 		for _, name := range defaultBackends {
-			available, reason := checkBackendAvailability(name)
+			available, reason := backend.DefaultRegistry.CheckDefault(name)
 			if available {
 				fmt.Fprintf(w, "  [implicit] %s\t✓ available\n", name)
 			} else {
@@ -76,48 +76,6 @@ var statusCmd = &cobra.Command{
 
 		return w.Flush()
 	},
-}
-
-// checkBackendAvailability checks if a backend is available based on env vars.
-// Returns (true, "") if available, (false, reason) if not.
-func checkBackendAvailability(name string) (bool, string) {
-	switch name {
-	case "keychain":
-		// Keychain is always available on macOS/Windows
-		// On Linux it depends on Secret Service, but we can't quickly check that
-		return true, ""
-	case "aws":
-		// Check for AWS credentials via env vars or config file indicator
-		if os.Getenv("AWS_ACCESS_KEY_ID") != "" {
-			return true, ""
-		}
-		if os.Getenv("AWS_PROFILE") != "" {
-			return true, ""
-		}
-		if os.Getenv("AWS_SDK_LOAD_CONFIG") != "" {
-			return true, ""
-		}
-		// Check for config file existence would require file system access
-		// For now, assume credentials might be in ~/.aws/credentials
-		return false, "needs AWS_ACCESS_KEY_ID or AWS_PROFILE or ~/.aws/credentials"
-	case "1password":
-		if os.Getenv("OP_SERVICE_ACCOUNT_TOKEN") != "" {
-			return true, ""
-		}
-		return false, "needs OP_SERVICE_ACCOUNT_TOKEN"
-	case "keeper":
-		if os.Getenv("KSM_CONFIG") != "" {
-			return true, ""
-		}
-		return false, "needs KSM_CONFIG"
-	case "jumpcloud":
-		if os.Getenv("JUMPCLOUD_API_KEY") != "" {
-			return true, ""
-		}
-		return false, "needs JUMPCLOUD_API_KEY"
-	default:
-		return false, "unknown backend"
-	}
 }
 
 // checkNamespaceStatus checks if a namespace's backend can be resolved.
