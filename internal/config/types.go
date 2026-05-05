@@ -29,7 +29,8 @@ type BackendConfig struct {
 
 // GlobalConfig is the parsed representation of ~/.config/envoke/config.toml.
 type GlobalConfig struct {
-	Backends []BackendConfig `toml:"backend"`
+	Backends                 []BackendConfig `toml:"backend"`
+	DisabledImplicitBackends []string        `toml:"disabled_implicit_backends,omitempty"`
 }
 
 // BackendByName returns the BackendConfig whose Name matches name, or nil.

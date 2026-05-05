@@ -11,6 +11,28 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// LoadGlobal reads only the global config without loading project dotfiles.
+func LoadGlobal() (GlobalConfig, error) {
+	return loadGlobal()
+}
+
+// SaveGlobal writes cfg to the global config file, creating it if needed.
+func SaveGlobal(cfg GlobalConfig) error {
+	path, err := GlobalConfigPath()
+	if err != nil {
+		return fmt.Errorf("cannot determine config path: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("cannot create config directory: %w", err)
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("cannot write config: %w", err)
+	}
+	defer f.Close()
+	return toml.NewEncoder(f).Encode(cfg)
+}
+
 const (
 	dotfileName       = ".envoke"
 	localOverrideName = ".envoke.local"
@@ -30,6 +52,7 @@ func Load(projectDir string) (*Loaded, error) {
 	// Register explicit backends from global config with the registry
 	// This is done lazily - backends are created on first Resolve() call
 	registerExplicitBackendConfigs(global)
+	backend.DefaultRegistry.SetDisabled(global.DisabledImplicitBackends)
 
 	base, err := loadDotfile(filepath.Join(projectDir, dotfileName))
 	if err != nil {
