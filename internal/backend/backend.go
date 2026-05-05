@@ -75,6 +75,7 @@ type Registry struct {
 	checks         map[string]CheckFunc      // provider name -> fast check function
 	explicit       map[string]Backend        // created explicit backends (cached)
 	explicitConfig map[string]ExplicitConfig // explicit backend configs (for lazy creation)
+	disabled       map[string]bool           // implicit backends disabled in global config
 }
 
 // DefaultRegistry is the global registry instance.
@@ -83,6 +84,25 @@ var DefaultRegistry = &Registry{
 	checks:         make(map[string]CheckFunc),
 	explicit:       make(map[string]Backend),
 	explicitConfig: make(map[string]ExplicitConfig),
+	disabled:       make(map[string]bool),
+}
+
+// SetDisabled replaces the set of disabled implicit backends from global config.
+// Names that are not compiled in are silently ignored.
+func (r *Registry) SetDisabled(names []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.disabled = make(map[string]bool, len(names))
+	for _, n := range names {
+		r.disabled[n] = true
+	}
+}
+
+// IsDisabled reports whether the named implicit backend is disabled in config.
+func (r *Registry) IsDisabled(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.disabled[name]
 }
 
 // RegisterDefault allows backends to self-register as zero-config providers.
@@ -124,6 +144,7 @@ func (r *Registry) createExplicitBackend(name string, cfg ExplicitConfig) (Backe
 
 // Resolve returns a backend by name.
 // Priority: explicit config (lazy-created) > explicit config (pre-created) > default factory > error.
+// Disabled implicit backends are not resolved unless an explicit config overrides them.
 func (r *Registry) Resolve(name string) (Backend, error) {
 	r.mu.RLock()
 
@@ -138,15 +159,16 @@ func (r *Registry) Resolve(name string) (Backend, error) {
 
 	// 3. Check for default factory
 	factory, hasDefault := r.defaults[name]
+	isDisabled := r.disabled[name]
 
 	r.mu.RUnlock()
 
-	// Create from config if available (explicit wins over default)
+	// Create from config if available (explicit wins over default, and over disabled)
 	if hasConfig {
 		b, err := r.createExplicitBackend(name, cfg)
 		if err != nil {
-			// If creation fails, try default as fallback if available
-			if hasDefault {
+			// If creation fails, try default as fallback if available and not disabled
+			if hasDefault && !isDisabled {
 				return factory()
 			}
 			return nil, fmt.Errorf("explicit backend %q (%s): %w", name, cfg.Type, err)
@@ -158,8 +180,11 @@ func (r *Registry) Resolve(name string) (Backend, error) {
 		return b, nil
 	}
 
-	// 4. Try default factory (creates on demand)
+	// 4. Try default factory (creates on demand) — unless disabled
 	if hasDefault {
+		if isDisabled {
+			return nil, fmt.Errorf("backend %q is disabled", name)
+		}
 		return factory()
 	}
 
@@ -211,14 +236,20 @@ func (r *Registry) ExplicitNames() []string {
 // CheckDefault tests if a default backend is available.
 // Returns (available, reason) where reason is empty string if available.
 // Uses the fast CheckFunc if registered, otherwise calls the factory (slower).
+// Returns (false, "disabled") for backends disabled in config.
 func (r *Registry) CheckDefault(name string) (bool, string) {
 	r.mu.RLock()
+	isDisabled := r.disabled[name]
 	check, hasCheck := r.checks[name]
 	factory, hasFactory := r.defaults[name]
 	r.mu.RUnlock()
 
 	if !hasFactory {
 		return false, "not registered"
+	}
+
+	if isDisabled {
+		return false, "disabled"
 	}
 
 	// Use fast check function if available

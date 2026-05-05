@@ -37,8 +37,11 @@ var statusCmd = &cobra.Command{
 			status string
 		})
 
-		// Add implicit (default) backends
+		// Add implicit (default) backends — skip ones disabled in config
 		for _, name := range backend.DefaultRegistry.DefaultNames() {
+			if backend.DefaultRegistry.IsDisabled(name) {
+				continue
+			}
 			available, reason := backend.DefaultRegistry.CheckDefault(name)
 			status := "✓ available"
 			if !available {
