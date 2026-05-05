@@ -3,6 +3,7 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -38,10 +39,6 @@ func Run(cfg *config.Loaded, args []string) (int, error) {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-
-	// Run the subprocess in a new process group (Unix) or create new console (Windows)
-	// so signals go to the child, not envoke. This is standard behavior for wrapper tools.
-	setSysProcAttr(cmd)
 
 	if err := cmd.Run(); err != nil {
 		if exit, ok := err.(*exec.ExitError); ok {
@@ -107,6 +104,10 @@ func fetchSecrets(cfg *config.Loaded) (map[string]string, error) {
 		for _, key := range keys {
 			value, err := b.Get(ns.Name, key)
 			if err != nil {
+				if errors.Is(err, backend.ErrNotFound) {
+					fmt.Fprintf(os.Stderr, "warning: key %s/%s not found in backend %q, skipping\n", ns.Name, key, ns.Backend)
+					continue
+				}
 				return nil, fmt.Errorf("get %s/%s (backend %q): %w", ns.Name, key, ns.Backend, err)
 			}
 			result[key] = value
