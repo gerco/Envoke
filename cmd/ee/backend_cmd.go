@@ -209,7 +209,7 @@ Examples:
 var backendRemoveCmd = &cobra.Command{
 	Use:     "remove <name>",
 	Aliases: []string{"rm"},
-	Short:   "Remove an explicit backend from the global config",
+	Short:   "Remove an explicit backend, or disable an implicit one",
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
@@ -217,18 +217,32 @@ var backendRemoveCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
 		}
+		// Remove explicit backend if present.
 		idx := slices.IndexFunc(cfg.Backends, func(b config.BackendConfig) bool {
 			return b.Name == name
 		})
-		if idx == -1 {
-			return fmt.Errorf("backend %q not found in config", name)
+		if idx != -1 {
+			cfg.Backends = slices.Delete(cfg.Backends, idx, idx+1)
+			if err := config.SaveGlobal(cfg); err != nil {
+				return fmt.Errorf("save config: %w", err)
+			}
+			fmt.Printf("Backend %q removed.\n", name)
+			return nil
 		}
-		cfg.Backends = slices.Delete(cfg.Backends, idx, idx+1)
-		if err := config.SaveGlobal(cfg); err != nil {
-			return fmt.Errorf("save config: %w", err)
+		// For implicit (compiled-in) backends, disable instead.
+		if backend.DefaultRegistry.HasDefault(name) {
+			if slices.Contains(cfg.DisabledImplicitBackends, name) {
+				fmt.Printf("Backend %q is already disabled.\n", name)
+				return nil
+			}
+			cfg.DisabledImplicitBackends = append(cfg.DisabledImplicitBackends, name)
+			if err := config.SaveGlobal(cfg); err != nil {
+				return fmt.Errorf("save config: %w", err)
+			}
+			fmt.Printf("Backend %q disabled.\n", name)
+			return nil
 		}
-		fmt.Printf("Backend %q removed.\n", name)
-		return nil
+		return fmt.Errorf("backend %q not found", name)
 	},
 }
 
