@@ -3,6 +3,7 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -103,6 +104,10 @@ func fetchSecrets(cfg *config.Loaded) (map[string]string, error) {
 		for _, key := range keys {
 			value, err := b.Get(ns.Name, key)
 			if err != nil {
+				if errors.Is(err, backend.ErrNotFound) {
+					fmt.Fprintf(os.Stderr, "warning: key %s/%s not found in backend %q, skipping\n", ns.Name, key, ns.Backend)
+					continue
+				}
 				return nil, fmt.Errorf("get %s/%s (backend %q): %w", ns.Name, key, ns.Backend, err)
 			}
 			result[key] = value
