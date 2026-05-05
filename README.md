@@ -32,13 +32,21 @@ Pre-built binaries for macOS, Linux, and Windows are available on the [releases 
 
 ```bash
 # All backends (~35MB)
-go build -tags "keychain,aws,1password" -o ee ./cmd/ee
+go build -tags "1password,keeper,jumpcloud,aws" -o ee ./cmd/ee
 
-# Minimal build, no backends (~7.6MB)
+# Minimal build — keychain only (~7.6MB)
 go build -o ee ./cmd/ee
 
 # Specific backends
-go build -tags "keychain,aws" -o ee ./cmd/ee
+go build -tags "aws,1password" -o ee ./cmd/ee
+```
+
+Or use `just`:
+
+```bash
+just build              # builds with all backends
+just build-minimal      # keychain only
+just build-with aws,1password
 ```
 
 See [Building](#building) for details on build tags.
@@ -47,27 +55,16 @@ See [Building](#building) for details on build tags.
 
 ## Quick Start
 
-**1. Configure a backend** in `~/.config/envoke/config.toml`:
-
-```toml
-# The "local" keychain backend is built-in; no config needed.
-
-[[backend]]
-name = "aws-dev"
-type = "aws"
-[backend.options]
-region = "us-east-1"
-prefix = "myteam/"
-```
-
-**2. Store a secret:**
+**1. Store a secret in the local keychain:**
 
 ```bash
 ee set db-local DB_PASSWORD          # prompts for value (hidden)
-ee set db-local DB_HOST              # prompts for value
+ee set db-local DB_HOST                # prompts for value
 ```
 
-**3. Run a command with secrets injected:**
+The `keychain` backend uses your OS credential store and is always available without configuration.
+
+**2. Run a command with secrets injected:**
 
 ```bash
 ee -- psql -h $DB_HOST -U myuser
@@ -91,13 +88,9 @@ On Windows the global config lives at `%APPDATA%\envoke\config.toml`. On Linux/m
 
 ### Global config (`~/.config/envoke/config.toml`)
 
-Describes how to reach each backend. This file is never committed.
+Describes how to reach each backend. This file is never committed. Use `ee config edit` to open it in your editor.
 
 ```toml
-[[backend]]
-name = "local"
-type = "keychain"
-
 [[backend]]
 name = "aws-dev"
 type = "aws"
@@ -124,10 +117,14 @@ Each `[[backend]]` entry has:
 | Field | Description |
 |-------|-------------|
 | `name` | Identifier referenced in `.envoke` |
-| `type` | Backend type: `keychain`, `aws`, `1password` |
+| `type` | Backend type: `aws`, `1password`, `keeper`, `jumpcloud`, or `keychain` |
 | `[backend.options]` | Backend-specific key/value options (see [Backends](#backends)) |
 
-A `keychain` backend named `"local"` is always available without any configuration.
+You can also disable implicit (zero-config) backends that you don't want to use:
+
+```toml
+disabled_implicit_backends = ["keychain", "aws"]
+```
 
 ### Project dotfile (`.envoke`)
 
@@ -140,7 +137,7 @@ backend = "aws-dev"
 
 [[namespace]]
 name = "local-creds"
-backend = "local"
+backend = "keychain"
 
 [[namespace]]
 name = "stripe"
@@ -152,7 +149,7 @@ Each `[[namespace]]` entry has:
 | Field | Description |
 |-------|-------------|
 | `name` | Namespace identifier, also the secret group name in the backend |
-| `backend` | Must match a `name` in the global config |
+| `backend` | Must match a `name` in the global config or be an implicit backend |
 | `[namespace.options]` | Optional: override backend options for this namespace only |
 
 ### Local overrides (`.envoke.local`)
@@ -163,7 +160,7 @@ Same format as `.envoke`. Namespaces with the same name replace those from `.env
 # Override the db-dev namespace to use a local keychain instead of AWS
 [[namespace]]
 name = "db-dev"
-backend = "local"
+backend = "keychain"
 ```
 
 ---
@@ -172,18 +169,10 @@ backend = "local"
 
 ### Keychain (OS native)
 
-**Build tag:** `keychain`  
+**Build tag:** none (always compiled in)  
 **Platforms:** macOS (Keychain), Windows (Credential Manager), Linux (Secret Service / GNOME Keyring / KWallet)
 
-Uses the OS credential store. No extra config required. The `"local"` backend is a pre-configured keychain instance that is always available.
-
-```toml
-[[backend]]
-name = "local"
-type = "keychain"
-```
-
-No backend options.
+Uses the OS credential store. No extra config required — the `keychain` backend is always available as a zero-config implicit backend.
 
 ### AWS Secrets Manager
 
@@ -237,6 +226,18 @@ ee -- myapp/api_key
 
 Storage model: namespace = vault name, key = item name (optionally with `/field`).
 
+### Keeper Secrets Manager
+
+**Build tag:** `keeper`
+
+Stub implementation — not yet available.
+
+### JumpCloud Password Manager
+
+**Build tag:** `jumpcloud`
+
+Stub implementation — not yet available.
+
 ---
 
 ## Commands
@@ -259,11 +260,11 @@ The current environment is preserved as a base layer. Secrets are layered on top
 Store a secret in a backend namespace.
 
 ```bash
-ee set db-dev DB_PASSWORD           # prompts for value (echo hidden)
-ee set db-dev DB_HOST               # prompts for value
+ee set db-local DB_PASSWORD           # prompts for value (echo hidden)
+ee set db-local DB_HOST               # prompts for value
 
-echo "s3cr3t" | ee set db-dev DB_PASSWORD   # read from stdin
-ee set db-dev DB_PASSWORD mypassword        # value as argument (appears in shell history — avoid)
+echo "s3cr3t" | ee set db-local DB_PASSWORD   # read from stdin
+ee set db-local DB_PASSWORD mypassword        # value as argument (appears in shell history — avoid)
 
 ee set --backend aws-dev db-dev DB_PASSWORD   # use a specific backend
 ```
@@ -287,14 +288,43 @@ ee list db-dev          # keys from one namespace
 
 ### `ee status`
 
-Show the health of each namespace backend for the current project.
+Show the health and availability of all backends and project namespaces.
 
 ```
-NAMESPACE      BACKEND     STATUS
-────────────────────────────────────
-aws-dev        aws         ✓ ok
-db-local       keychain    ✓ ok
-stripe-test    1password   ✗ token expired
+Backends:
+NAME       KIND       DETAIL
+────       ────       ──────
+aws        implicit   enabled
+keychain   implicit   enabled
+
+Project namespaces:
+NAMESPACE   BACKEND    STATUS
+─────────   ───────    ──────
+db-dev      aws-dev    ✓ ok
+local       keychain   ✓ ok
+```
+
+### `ee config`
+
+Manage the global configuration file.
+
+```bash
+ee config path          # print the config file path
+ee config edit          # open in your default editor
+ee config show          # display (sensitive values are redacted)
+```
+
+### `ee backend`
+
+Manage backends in the global config.
+
+```bash
+ee backend list                    # list all backends (implicit and explicit)
+ee backend enable keychain         # enable a disabled implicit backend
+ee backend disable aws             # disable an implicit backend
+ee backend add prod-aws --type aws --set region=us-west-2
+ee backend edit prod-aws --set region=eu-west-1
+ee backend remove prod-aws         # remove an explicit backend
 ```
 
 ---
@@ -313,8 +343,8 @@ The keychain backend is always included — no build tag needed.
 | `jumpcloud` | JumpCloud Password Manager | Stub — not yet implemented |
 
 ```bash
-# All implemented backends
-go build -tags "aws,1password" -o ee ./cmd/ee
+# All backends
+go build -tags "1password,keeper,jumpcloud,aws" -o ee ./cmd/ee
 
 # Minimal — keychain only (~7.6MB)
 go build -o ee ./cmd/ee
