@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"git.dries.info/gerco/envoke/internal/backend"
 	"github.com/BurntSushi/toml"
@@ -78,8 +77,8 @@ func registerExplicitBackendConfigs(global GlobalConfig) {
 	}
 }
 
-// loadGlobal reads ~/.config/envoke/config.toml (XDG on Linux/macOS,
-// %APPDATA%\envoke\config.toml on Windows).
+// loadGlobal reads the global config file using OS-appropriate paths
+// (XDG on Linux, Application Support on macOS, APPDATA on Windows).
 func loadGlobal() (GlobalConfig, error) {
 	path, err := GlobalConfigPath()
 	if err != nil {
@@ -101,27 +100,16 @@ func applyDefaults(cfg *GlobalConfig) {
 }
 
 // GlobalConfigPath returns the path to the global configuration file.
-// On Windows: %APPDATA%\envoke\config.toml
-// On Unix: $XDG_CONFIG_HOME/envoke/config.toml or ~/.config/envoke/config.toml
+// Platform-specific paths:
+//   - Linux: $XDG_CONFIG_HOME/envoke/config.toml or ~/.config/envoke/config.toml
+//   - macOS: ~/Library/Application Support/envoke/config.toml
+//   - Windows: %APPDATA%\envoke\config.toml
 func GlobalConfigPath() (string, error) {
-	if runtime.GOOS == "windows" {
-		appData := os.Getenv("APPDATA")
-		if appData == "" {
-			return "", fmt.Errorf("%%APPDATA%% not set")
-		}
-		return filepath.Join(appData, appDirName, globalConfigName), nil
+	dir, err := defaultConfigDir()
+	if err != nil {
+		return "", err
 	}
-
-	// XDG_CONFIG_HOME takes precedence, then ~/.config
-	xdg := os.Getenv("XDG_CONFIG_HOME")
-	if xdg == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("cannot determine home directory: %w", err)
-		}
-		xdg = filepath.Join(home, ".config")
-	}
-	return filepath.Join(xdg, appDirName, globalConfigName), nil
+	return filepath.Join(dir, globalConfigName), nil
 }
 
 func loadDotfile(path string) (DotFile, error) {
