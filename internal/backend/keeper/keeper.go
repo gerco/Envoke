@@ -17,9 +17,24 @@ import (
 
 const backendName = "keeper"
 
+// keeperConfig holds the typed configuration for the Keeper backend.
+// Currently a stub - will be expanded when full implementation is added.
+type keeperConfig struct {
+	// Config string // KSM_CONFIG or other configuration
+}
+
+// parseConfig converts the raw options map into a typed keeperConfig.
+func parseConfig(opts map[string]string) (*keeperConfig, error) {
+	return &keeperConfig{}, nil
+}
+
 func init() {
 	// Register as explicit factory (with options from config)
 	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
+		_, err := parseConfig(opts)
+		if err != nil {
+			return nil, err
+		}
 		return &keeperBackend{}, nil
 	})
 	// Register as default (zero-config) factory using KSM_CONFIG env var

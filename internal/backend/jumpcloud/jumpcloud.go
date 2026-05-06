@@ -11,9 +11,24 @@ import (
 
 const backendName = "jumpcloud"
 
+// jumpcloudConfig holds the typed configuration for the JumpCloud backend.
+// Currently a stub - will be expanded when full implementation is added.
+type jumpcloudConfig struct {
+	// APIKey string // JumpCloud API key
+}
+
+// parseConfig converts the raw options map into a typed jumpcloudConfig.
+func parseConfig(opts map[string]string) (*jumpcloudConfig, error) {
+	return &jumpcloudConfig{}, nil
+}
+
 func init() {
 	// Register as explicit factory (with options from config)
 	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
+		_, err := parseConfig(opts)
+		if err != nil {
+			return nil, err
+		}
 		return &jumpcloudBackend{}, nil
 	})
 	// Register as default (zero-config) factory using JUMPCLOUD_API_KEY env var

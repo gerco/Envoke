@@ -29,7 +29,7 @@ func setGlobalConfigDir(t *testing.T, dir string) {
 	}
 }
 
-func writeTOML(t *testing.T, dir, name, content string) {
+func writeYAML(t *testing.T, dir, name, content string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", name, err)
@@ -49,14 +49,12 @@ func TestLoad_NoDotfile(t *testing.T) {
 
 func TestLoad_DotfileOnly(t *testing.T) {
 	dir := t.TempDir()
-	writeTOML(t, dir, ".envoke", `
-[[namespace]]
-name = "aws-dev"
-backend = "keeper"
-
-[[namespace]]
-name = "db-local"
-backend = "keychain"
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  aws-dev:
+    backend: keeper
+  db-local:
+    backend: keychain
 `)
 
 	cfg, err := Load(dir)
@@ -66,26 +64,33 @@ backend = "keychain"
 	if len(cfg.Namespaces) != 2 {
 		t.Fatalf("expected 2 namespaces, got %d", len(cfg.Namespaces))
 	}
-	if cfg.Namespaces[0].Name != "aws-dev" || cfg.Namespaces[0].Backend != "keeper" {
-		t.Errorf("unexpected namespace[0]: %+v", cfg.Namespaces[0])
+
+	// Find namespaces in the result (order may vary since it's a map)
+	nsMap := make(map[string]string)
+	for _, ns := range cfg.Namespaces {
+		nsMap[ns.Name] = ns.Backend
 	}
-	if cfg.Namespaces[1].Name != "db-local" || cfg.Namespaces[1].Backend != "keychain" {
-		t.Errorf("unexpected namespace[1]: %+v", cfg.Namespaces[1])
+
+	if nsMap["aws-dev"] != "keeper" {
+		t.Errorf("expected aws-dev backend=keeper, got %q", nsMap["aws-dev"])
+	}
+	if nsMap["db-local"] != "keychain" {
+		t.Errorf("expected db-local backend=keychain, got %q", nsMap["db-local"])
 	}
 }
 
 func TestLoad_LocalOverrideReplaces(t *testing.T) {
 	dir := t.TempDir()
-	writeTOML(t, dir, ".envoke", `
-[[namespace]]
-name = "aws-dev"
-backend = "keeper"
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  aws-dev:
+    backend: keeper
 `)
 	// Local overrides the same namespace with a different backend.
-	writeTOML(t, dir, ".envoke.local", `
-[[namespace]]
-name = "aws-dev"
-backend = "keychain"
+	writeYAML(t, dir, ".envoke.local", `
+namespaces:
+  aws-dev:
+    backend: keychain
 `)
 
 	cfg, err := Load(dir)
@@ -102,15 +107,15 @@ backend = "keychain"
 
 func TestLoad_LocalOverrideAppends(t *testing.T) {
 	dir := t.TempDir()
-	writeTOML(t, dir, ".envoke", `
-[[namespace]]
-name = "aws-dev"
-backend = "keeper"
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  aws-dev:
+    backend: keeper
 `)
-	writeTOML(t, dir, ".envoke.local", `
-[[namespace]]
-name = "db-personal"
-backend = "keychain"
+	writeYAML(t, dir, ".envoke.local", `
+namespaces:
+  db-personal:
+    backend: keychain
 `)
 
 	cfg, err := Load(dir)
@@ -120,13 +125,22 @@ backend = "keychain"
 	if len(cfg.Namespaces) != 2 {
 		t.Fatalf("expected 2 namespaces after append, got %d", len(cfg.Namespaces))
 	}
-	if cfg.Namespaces[1].Name != "db-personal" {
-		t.Errorf("expected appended namespace, got %q", cfg.Namespaces[1].Name)
+
+	// Check that both namespaces are present
+	nsMap := make(map[string]bool)
+	for _, ns := range cfg.Namespaces {
+		nsMap[ns.Name] = true
+	}
+	if !nsMap["aws-dev"] {
+		t.Errorf("expected aws-dev namespace to be present")
+	}
+	if !nsMap["db-personal"] {
+		t.Errorf("expected db-personal namespace to be present")
 	}
 }
 
 func TestMerge_EmptyLocal(t *testing.T) {
-	base := DotFile{Namespaces: []Namespace{{Name: "a", Backend: "x"}}}
+	base := DotFile{Namespaces: map[string]Namespace{"a": {Backend: "x"}}}
 	result := merge(base, DotFile{})
 	if len(result) != 1 || result[0].Name != "a" {
 		t.Errorf("unexpected merge result: %+v", result)
@@ -155,10 +169,10 @@ func TestLoad_LocalBackendNotOverriddenByDefault(t *testing.T) {
 	if err := os.MkdirAll(globalDir+"/envoke", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	writeTOML(t, globalDir+"/envoke", "config.toml", `
-[[backend]]
-name = "local"
-type = "keeper"
+	writeYAML(t, globalDir+"/envoke", "config.yaml", `
+backends:
+  local:
+    type: keeper
 `)
 	cfg, err := Load(dir)
 	if err != nil {
@@ -172,9 +186,9 @@ type = "keeper"
 
 func TestBackendByName(t *testing.T) {
 	g := &GlobalConfig{
-		Backends: []BackendConfig{
-			{Name: "my-keeper", Type: "keeper"},
-			{Name: "my-chain", Type: "keychain"},
+		Backends: map[string]BackendConfig{
+			"my-keeper": {Type: "keeper"},
+			"my-chain":  {Type: "keychain"},
 		},
 	}
 	if bc := g.BackendByName("my-keeper"); bc == nil || bc.Type != "keeper" {
@@ -191,9 +205,9 @@ func TestGlobalConfigPath_PlatformSpecific(t *testing.T) {
 		t.Fatalf("GlobalConfigPath() error = %v", err)
 	}
 
-	// Verify path ends with config.toml
-	if filepath.Base(path) != "config.toml" {
-		t.Errorf("expected path to end with config.toml, got %s", filepath.Base(path))
+	// Verify path ends with config.yaml
+	if filepath.Base(path) != "config.yaml" {
+		t.Errorf("expected path to end with config.yaml, got %s", filepath.Base(path))
 	}
 
 	// Verify platform-specific path structure
@@ -229,7 +243,7 @@ func TestGlobalConfigPath_Linux_XDGConfigHome(t *testing.T) {
 		t.Fatalf("GlobalConfigPath() error = %v", err)
 	}
 
-	expected := filepath.Join(dir, "envoke", "config.toml")
+	expected := filepath.Join(dir, "envoke", "config.yaml")
 	if path != expected {
 		t.Errorf("XDG_CONFIG_HOME not respected: got %s, want %s", path, expected)
 	}
@@ -248,7 +262,7 @@ func TestGlobalConfigPath_Windows_AppData(t *testing.T) {
 		t.Fatalf("GlobalConfigPath() error = %v", err)
 	}
 
-	expected := filepath.Join(dir, "envoke", "config.toml")
+	expected := filepath.Join(dir, "envoke", "config.yaml")
 	if path != expected {
 		t.Errorf("APPDATA not respected: got %s, want %s", path, expected)
 	}
@@ -280,4 +294,55 @@ func containsHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestEnvExpansion_InDotfile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TEST_BACKEND", "keychain")
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  test-ns:
+    backend: "${TEST_BACKEND}"
+`)
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Namespaces) != 1 {
+		t.Fatalf("expected 1 namespace, got %d", len(cfg.Namespaces))
+	}
+	if cfg.Namespaces[0].Backend != "keychain" {
+		t.Errorf("expected backend to be expanded to 'keychain', got %q", cfg.Namespaces[0].Backend)
+	}
+}
+
+func TestEnvExpansion_InGlobalConfig(t *testing.T) {
+	globalDir := t.TempDir()
+	setGlobalConfigDir(t, globalDir)
+	t.Setenv("TEST_REGION", "us-west-2")
+
+	if err := os.MkdirAll(globalDir+"/envoke", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeYAML(t, globalDir+"/envoke", "config.yaml", `
+backends:
+  aws-test:
+    type: aws
+    region: "${TEST_REGION}"
+`)
+
+	dir := t.TempDir()
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	bc := cfg.Global.BackendByName("aws-test")
+	if bc == nil {
+		t.Fatal("expected aws-test backend")
+	}
+	if bc.Config["region"] != "us-west-2" {
+		t.Errorf("expected region to be expanded to 'us-west-2', got %q", bc.Config["region"])
+	}
 }

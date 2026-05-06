@@ -15,9 +15,24 @@ import (
 
 const backendName = "keychain"
 
+// keychainConfig holds the typed configuration for the keychain backend.
+// Currently unused but reserved for future options (e.g. custom service name prefix).
+type keychainConfig struct {
+	// ServicePrefix string // Optional prefix for service names
+}
+
+// parseConfig converts the raw options map into a typed keychainConfig.
+func parseConfig(opts map[string]string) (*keychainConfig, error) {
+	return &keychainConfig{}, nil
+}
+
 func init() {
 	// Register as explicit factory (with options from config)
 	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
+		_, err := parseConfig(opts)
+		if err != nil {
+			return nil, err
+		}
 		return New(opts)
 	})
 	// Register as default (zero-config) factory - always available

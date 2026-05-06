@@ -5,11 +5,11 @@ go 1.25.0
 require (
 	github.com/1password/onepassword-sdk-go v0.4.0
 	github.com/99designs/keyring v1.2.2
-	github.com/BurntSushi/toml v1.6.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.16
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.41.6
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.3.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

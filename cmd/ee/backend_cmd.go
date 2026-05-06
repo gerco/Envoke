@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -66,8 +65,8 @@ var backendListCmd = &cobra.Command{
 			}
 			rows = append(rows, row{name, "implicit", detail})
 		}
-		for _, bc := range cfg.Backends {
-			rows = append(rows, row{bc.Name, "explicit", bc.Type})
+		for name, bc := range cfg.Backends {
+			rows = append(rows, row{name, "explicit", bc.Type})
 		}
 		sort.Slice(rows, func(i, j int) bool { return rows[i].name < rows[j].name })
 
@@ -91,12 +90,23 @@ var backendEnableCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
 		}
-		idx := slices.Index(cfg.DisabledImplicitBackends, name)
-		if idx == -1 {
+
+		// Find and remove from disabled list
+		newDisabled := cfg.DisabledImplicitBackends[:0]
+		found := false
+		for _, n := range cfg.DisabledImplicitBackends {
+			if n == name {
+				found = true
+			} else {
+				newDisabled = append(newDisabled, n)
+			}
+		}
+		if !found {
 			fmt.Printf("Backend %q is not disabled.\n", name)
 			return nil
 		}
-		cfg.DisabledImplicitBackends = slices.Delete(cfg.DisabledImplicitBackends, idx, idx+1)
+
+		cfg.DisabledImplicitBackends = newDisabled
 		if err := config.SaveGlobal(cfg); err != nil {
 			return fmt.Errorf("save config: %w", err)
 		}
@@ -115,10 +125,15 @@ var backendDisableCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
 		}
-		if slices.Contains(cfg.DisabledImplicitBackends, name) {
-			fmt.Printf("Backend %q is already disabled.\n", name)
-			return nil
+
+		// Check if already disabled
+		for _, n := range cfg.DisabledImplicitBackends {
+			if n == name {
+				fmt.Printf("Backend %q is already disabled.\n", name)
+				return nil
+			}
 		}
+
 		cfg.DisabledImplicitBackends = append(cfg.DisabledImplicitBackends, name)
 		if err := config.SaveGlobal(cfg); err != nil {
 			return fmt.Errorf("save config: %w", err)
@@ -131,7 +146,7 @@ var backendDisableCmd = &cobra.Command{
 var backendAddCmd = &cobra.Command{
 	Use:   "add <name>",
 	Short: "Add an explicit backend to the global config",
-	Long: `Add a named, explicitly configured backend to ~/.config/envoke/config.toml.
+	Long: `Add a named, explicitly configured backend to ~/.config/envoke/config.yaml.
 
 Examples:
   ee backend add work-vault --type keeper --set vault_id=abc123
@@ -150,11 +165,14 @@ Examples:
 		if err != nil {
 			return err
 		}
-		cfg.Backends = append(cfg.Backends, config.BackendConfig{
-			Name:    name,
-			Type:    addType,
-			Options: opts,
-		})
+
+		if cfg.Backends == nil {
+			cfg.Backends = make(map[string]config.BackendConfig)
+		}
+		cfg.Backends[name] = config.BackendConfig{
+			Type:   addType,
+			Config: opts,
+		}
 		if err := config.SaveGlobal(cfg); err != nil {
 			return fmt.Errorf("save config: %w", err)
 		}
@@ -166,7 +184,7 @@ Examples:
 var backendEditCmd = &cobra.Command{
 	Use:   "edit <name>",
 	Short: "Edit an explicit backend in the global config",
-	Long: `Modify an existing explicit backend in ~/.config/envoke/config.toml.
+	Long: `Modify an existing explicit backend in ~/.config/envoke/config.yaml.
 
 Examples:
   ee backend edit prod-aws --set region=eu-west-1
@@ -189,15 +207,19 @@ Examples:
 		if err != nil {
 			return err
 		}
-		if bc.Options == nil && len(setOpts) > 0 {
-			bc.Options = make(map[string]string)
+		if bc.Config == nil && len(setOpts) > 0 {
+			bc.Config = make(map[string]string)
 		}
 		for k, v := range setOpts {
-			bc.Options[k] = v
+			bc.Config[k] = v
 		}
 		for _, k := range editUnsetOpts {
-			delete(bc.Options, k)
+			delete(bc.Config, k)
 		}
+
+		// Update the backend in the map
+		cfg.Backends[name] = *bc
+
 		if err := config.SaveGlobal(cfg); err != nil {
 			return fmt.Errorf("save config: %w", err)
 		}
@@ -217,23 +239,25 @@ var backendRemoveCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
 		}
+
 		// Remove explicit backend if present.
-		idx := slices.IndexFunc(cfg.Backends, func(b config.BackendConfig) bool {
-			return b.Name == name
-		})
-		if idx != -1 {
-			cfg.Backends = slices.Delete(cfg.Backends, idx, idx+1)
+		if _, exists := cfg.Backends[name]; exists {
+			delete(cfg.Backends, name)
 			if err := config.SaveGlobal(cfg); err != nil {
 				return fmt.Errorf("save config: %w", err)
 			}
 			fmt.Printf("Backend %q removed.\n", name)
 			return nil
 		}
+
 		// For implicit (compiled-in) backends, disable instead.
 		if backend.DefaultRegistry.HasDefault(name) {
-			if slices.Contains(cfg.DisabledImplicitBackends, name) {
-				fmt.Printf("Backend %q is already disabled.\n", name)
-				return nil
+			// Check if already disabled
+			for _, n := range cfg.DisabledImplicitBackends {
+				if n == name {
+					fmt.Printf("Backend %q is already disabled.\n", name)
+					return nil
+				}
 			}
 			cfg.DisabledImplicitBackends = append(cfg.DisabledImplicitBackends, name)
 			if err := config.SaveGlobal(cfg); err != nil {

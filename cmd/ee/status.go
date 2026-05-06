@@ -54,8 +54,8 @@ var statusCmd = &cobra.Command{
 		}
 
 		// Add explicit backends from config
-		for _, bc := range cfg.Global.Backends {
-			allBackends[bc.Name] = struct {
+		for name, bc := range cfg.Global.Backends {
+			allBackends[name] = struct {
 				typ    string
 				status string
 			}{typ: "explicit", status: fmt.Sprintf("(%s)", bc.Type)}
@@ -94,7 +94,7 @@ var statusCmd = &cobra.Command{
 }
 
 // checkNamespaceStatus checks if a namespace's backend can be resolved.
-func checkNamespaceStatus(ns config.Namespace) string {
+func checkNamespaceStatus(ns config.NamespaceEntry) string {
 	_, err := backend.DefaultRegistry.Resolve(ns.Backend)
 	if err != nil {
 		return fmt.Sprintf("✗ %s", err)
