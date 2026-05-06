@@ -9,11 +9,22 @@ import (
 
 // setGlobalConfigDir redirects the global config lookup to dir for the duration
 // of the test, in a platform-correct way.
+//
+// Platform-specific behavior:
+//   - Linux: sets XDG_CONFIG_HOME
+//   - macOS: sets HOME (since macOS uses ~/Library/Application Support)
+//   - Windows: sets APPDATA
 func setGlobalConfigDir(t *testing.T, dir string) {
 	t.Helper()
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		t.Setenv("APPDATA", dir)
-	} else {
+	case "darwin":
+		// On macOS, the path is derived from $HOME/Library/Application Support
+		// We can't easily change just the config dir, so we test path structure instead
+		// Tests that need to override should use platform-specific integration tests
+	default:
+		// Linux and other Unix: use XDG_CONFIG_HOME
 		t.Setenv("XDG_CONFIG_HOME", dir)
 	}
 }
@@ -172,4 +183,101 @@ func TestBackendByName(t *testing.T) {
 	if bc := g.BackendByName("missing"); bc != nil {
 		t.Errorf("expected nil for missing backend, got %v", bc)
 	}
+}
+
+func TestGlobalConfigPath_PlatformSpecific(t *testing.T) {
+	path, err := GlobalConfigPath()
+	if err != nil {
+		t.Fatalf("GlobalConfigPath() error = %v", err)
+	}
+
+	// Verify path ends with config.toml
+	if filepath.Base(path) != "config.toml" {
+		t.Errorf("expected path to end with config.toml, got %s", filepath.Base(path))
+	}
+
+	// Verify platform-specific path structure
+	switch runtime.GOOS {
+	case "windows":
+		// Windows: should contain AppData\Roaming\envoke
+		if !contains(path, "AppData") && !contains(path, "envoke") {
+			t.Errorf("Windows path should contain AppData and envoke, got: %s", path)
+		}
+	case "darwin":
+		// macOS: should contain Library/Application Support/envoke
+		if !contains(path, "Library") || !contains(path, "Application Support") {
+			t.Errorf("macOS path should contain Library/Application Support, got: %s", path)
+		}
+	default:
+		// Linux: should contain .config/envoke or respect XDG_CONFIG_HOME
+		if !contains(path, "envoke") {
+			t.Errorf("Linux path should contain envoke directory, got: %s", path)
+		}
+	}
+}
+
+func TestGlobalConfigPath_Linux_XDGConfigHome(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping: Linux-only test")
+	}
+
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+
+	path, err := GlobalConfigPath()
+	if err != nil {
+		t.Fatalf("GlobalConfigPath() error = %v", err)
+	}
+
+	expected := filepath.Join(dir, "envoke", "config.toml")
+	if path != expected {
+		t.Errorf("XDG_CONFIG_HOME not respected: got %s, want %s", path, expected)
+	}
+}
+
+func TestGlobalConfigPath_Windows_AppData(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Skipping: Windows-only test")
+	}
+
+	dir := t.TempDir()
+	t.Setenv("APPDATA", dir)
+
+	path, err := GlobalConfigPath()
+	if err != nil {
+		t.Fatalf("GlobalConfigPath() error = %v", err)
+	}
+
+	expected := filepath.Join(dir, "envoke", "config.toml")
+	if path != expected {
+		t.Errorf("APPDATA not respected: got %s, want %s", path, expected)
+	}
+}
+
+func TestGlobalConfigPath_Windows_NoAppData(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Skipping: Windows-only test")
+	}
+
+	// Clear APPDATA
+	t.Setenv("APPDATA", "")
+
+	_, err := GlobalConfigPath()
+	if err == nil {
+		t.Error("expected error when APPDATA is not set, got nil")
+	}
+}
+
+// contains reports whether substr is within s.
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }

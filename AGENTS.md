@@ -33,6 +33,22 @@ Unix philosophy applies throughout:
   - 1Password SDK
 - **Do not add** test frameworks (use `testing` + `testify` only if it already exists in `go.mod`), logging libraries, or utility belts (`lo`, `samber`, etc.).
 
+## Configuration Locations
+
+Envoke uses OS-appropriate paths for global configuration:
+
+| OS | Global Config Path | Implementation |
+|----|-------------------|----------------|
+| Linux | `$XDG_CONFIG_HOME/envoke/config.toml` or `~/.config/envoke/config.toml` | `os.UserConfigDir()` (XDG Base Directory) |
+| macOS | `~/Library/Application Support/envoke/config.toml` | `os.UserConfigDir()` (Application Support) |
+| Windows | `%APPDATA%\envoke\config.toml` | `%APPDATA%` environment variable |
+
+Uses platform-specific implementations:
+- **Unix** (`path_unix.go`): Uses `os.UserConfigDir()` which handles both Linux (XDG) and macOS (Application Support) correctly
+- **Windows** (`path_windows.go`): Uses `%APPDATA%` for roaming profile support
+
+Project configuration files (`.envoke` and `.envoke.local`) remain in the project root directory regardless of platform.
+
 ## Building Backends (Optional Compilation)
 
 Backends use Go build tags for optional compilation to keep binary sizes minimal.

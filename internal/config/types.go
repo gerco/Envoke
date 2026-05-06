@@ -1,6 +1,11 @@
 // Package config handles loading and merging of the three config layers:
 //
-//	~/.config/envoke/config.toml  (global — describes backends)
+// Global config (OS-specific paths — describes backends):
+//   - Linux: $XDG_CONFIG_HOME/envoke/config.toml or ~/.config/envoke/config.toml
+//   - macOS: ~/Library/Application Support/envoke/config.toml
+//   - Windows: %APPDATA%\envoke\config.toml
+//
+// Project configs:
 //	<project>/.envoke             (dotfile — what the project needs)
 //	<project>/.envoke.local       (local overrides — gitignored)
 package config
