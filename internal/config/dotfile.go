@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // EnsureNamespace checks whether namespaceName is already declared in the
@@ -20,10 +21,8 @@ func EnsureNamespace(projectDir, namespaceName, backendName string) (bool, error
 		return false, fmt.Errorf("read dotfile: %w", err)
 	}
 
-	for _, ns := range existing.Namespaces {
-		if ns.Name == namespaceName {
-			return false, nil
-		}
+	if _, exists := existing.Namespaces[namespaceName]; exists {
+		return false, nil
 	}
 
 	if err := appendNamespace(path, namespaceName, backendName); err != nil {
@@ -32,8 +31,8 @@ func EnsureNamespace(projectDir, namespaceName, backendName string) (bool, error
 	return true, nil
 }
 
-// appendNamespace writes a [[namespace]] block to path, creating the file if
-// it does not exist.
+// appendNamespace writes a namespace entry to path, creating the file if
+// it does not exist. The namespace is appended in YAML format.
 func appendNamespace(path, namespaceName, backendName string) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
 	if err != nil {
@@ -46,11 +45,35 @@ func appendNamespace(path, namespaceName, backendName string) error {
 	if err != nil {
 		return fmt.Errorf("stat %s: %w", path, err)
 	}
-	prefix := ""
+
+	// Check if file is empty or needs namespaces: prefix
+	needsPrefix := info.Size() == 0
+	needsNamespacesKey := false
+
 	if info.Size() > 0 {
-		prefix = "\n"
+		// Check if file already has a namespaces: key
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		contentStr := string(content)
+		if !strings.Contains(contentStr, "namespaces:") {
+			needsNamespacesKey = true
+		}
 	}
 
-	_, err = fmt.Fprintf(f, "%s[[namespace]]\nname = %q\nbackend = %q\n", prefix, namespaceName, backendName)
+	var output string
+	if needsPrefix {
+		// File is empty, write the full structure
+		output = fmt.Sprintf("namespaces:\n  %s:\n    backend: %s\n", namespaceName, backendName)
+	} else if needsNamespacesKey {
+		// File has content but no namespaces key yet
+		output = fmt.Sprintf("\nnamespaces:\n  %s:\n    backend: %s\n", namespaceName, backendName)
+	} else {
+		// File has namespaces key, append just the new entry
+		output = fmt.Sprintf("\n  %s:\n    backend: %s\n", namespaceName, backendName)
+	}
+
+	_, err = f.WriteString(output)
 	return err
 }

@@ -11,9 +11,9 @@ import (
 	"sort"
 	"testing"
 
+	"git.dries.info/gerco/envoke/internal/backend"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
-	"git.dries.info/gerco/envoke/internal/backend"
 )
 
 // fakeClient is an in-memory implementation of secretsManagerClient.
@@ -76,7 +76,12 @@ func (f *fakeClient) stored(name string) map[string]string {
 }
 
 func newBackend(client *fakeClient, opts map[string]string) *awsBackend {
-	return newWithClient(client, opts)
+	cfg := &awsConfig{}
+	if opts != nil {
+		cfg.Region = opts["region"]
+		cfg.Prefix = opts["prefix"]
+	}
+	return newWithConfig(client, cfg)
 }
 
 // --- Set ---
