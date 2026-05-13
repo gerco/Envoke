@@ -22,6 +22,22 @@ import (
 
 const backendName = "aws"
 
+// awsConfig holds the typed configuration for the AWS backend.
+// Parsed once during initialization from the raw map.
+type awsConfig struct {
+	Region string
+	Prefix string
+}
+
+// parseConfig converts the raw options map into a typed awsConfig.
+// This is called once during backend initialization - business code never touches the raw map.
+func parseConfig(opts map[string]string) (*awsConfig, error) {
+	return &awsConfig{
+		Region: opts["region"],
+		Prefix: opts["prefix"],
+	}, nil
+}
+
 func init() {
 	// Register as explicit factory (with options from config)
 	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
@@ -74,18 +90,24 @@ type awsBackend struct {
 
 // New creates an AWS Secrets Manager backend with the given options.
 func New(opts map[string]string) (*awsBackend, error) {
-	ctx := context.Background()
-
-	cfg, err := config.LoadDefaultConfig(ctx)
+	// Parse raw map into typed config - this is the ONLY place we access opts
+	cfg, err := parseConfig(opts)
 	if err != nil {
 		return nil, fmt.Errorf("aws config: %w", err)
 	}
 
-	if region, ok := opts["region"]; ok {
-		cfg.Region = region
+	ctx := context.Background()
+
+	awsCfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("aws config: %w", err)
 	}
 
-	return newWithClient(secretsmanager.NewFromConfig(cfg), opts), nil
+	if cfg.Region != "" {
+		awsCfg.Region = cfg.Region
+	}
+
+	return newWithConfig(secretsmanager.NewFromConfig(awsCfg), cfg), nil
 }
 
 // NewDefaultBackend creates an AWS Secrets Manager backend with SDK default credential chain.
@@ -110,16 +132,13 @@ func NewDefaultBackend() (backend.Backend, error) {
 	return &awsBackend{client: client, prefix: "", region: cfg.Region}, nil
 }
 
-// newWithClient constructs an awsBackend with an injected client (used in tests).
-func newWithClient(client secretsManagerClient, opts map[string]string) *awsBackend {
-	prefix := ""
-	if p, ok := opts["prefix"]; ok {
-		prefix = p
-		if !strings.HasSuffix(prefix, "/") {
-			prefix += "/"
-		}
+// newWithConfig constructs an awsBackend with an injected client and typed config (used in tests).
+func newWithConfig(client secretsManagerClient, cfg *awsConfig) *awsBackend {
+	prefix := cfg.Prefix
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
 	}
-	return &awsBackend{client: client, prefix: prefix}
+	return &awsBackend{client: client, prefix: prefix, region: cfg.Region}
 }
 
 // secretName returns the full AWS secret name for a namespace.

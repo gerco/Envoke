@@ -22,11 +22,12 @@ Unix philosophy applies throughout:
 
 ## Dependencies
 
-- **Prefer the standard library.** Before adding a dependency, ask whether `encoding/toml` (Go 1.21+), `os/exec`, `crypto`, or another stdlib package covers the need. The dependency must earn its place.
+- **Prefer the standard library.** Before adding a dependency, ask whether `os/exec`, `crypto`, or another stdlib package covers the need. The dependency must earn its place.
 - **Approved dependencies** (already in scope per DESIGN.md):
   - `charmbracelet/bubbletea`, `charmbracelet/bubbles`, `charmbracelet/lipgloss` — TUI only
   - `99designs/keyring` — OS keychain abstraction
   - `spf13/cobra` — CLI structure
+  - `gopkg.in/yaml.v3` — YAML configuration parsing
   - Keeper Secrets Manager Go SDK
   - JumpCloud Go SDK / REST client
   - AWS SDK v2 (Secrets Manager)
@@ -39,9 +40,9 @@ Envoke uses OS-appropriate paths for global configuration:
 
 | OS | Global Config Path | Implementation |
 |----|-------------------|----------------|
-| Linux | `$XDG_CONFIG_HOME/envoke/config.toml` or `~/.config/envoke/config.toml` | `os.UserConfigDir()` (XDG Base Directory) |
-| macOS | `~/Library/Application Support/envoke/config.toml` | `os.UserConfigDir()` (Application Support) |
-| Windows | `%APPDATA%\envoke\config.toml` | `%APPDATA%` environment variable |
+| Linux | `$XDG_CONFIG_HOME/envoke/config.yaml` or `~/.config/envoke/config.yaml` | `os.UserConfigDir()` (XDG Base Directory) |
+| macOS | `~/Library/Application Support/envoke/config.yaml` | `os.UserConfigDir()` (Application Support) |
+| Windows | `%APPDATA%\envoke\config.yaml` | `%APPDATA%` environment variable |
 
 Uses platform-specific implementations:
 - **Unix** (`path_unix.go`): Uses `os.UserConfigDir()` which handles both Linux (XDG) and macOS (Application Support) correctly

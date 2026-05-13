@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"git.dries.info/gerco/envoke/internal/backend"
-	"github.com/BurntSushi/toml"
+	"gopkg.in/yaml.v3"
 )
 
 // LoadGlobal reads only the global config without loading project dotfiles.
@@ -29,13 +29,16 @@ func SaveGlobal(cfg GlobalConfig) error {
 		return fmt.Errorf("cannot write config: %w", err)
 	}
 	defer f.Close()
-	return toml.NewEncoder(f).Encode(cfg)
+
+	encoder := yaml.NewEncoder(f)
+	defer encoder.Close()
+	return encoder.Encode(cfg)
 }
 
 const (
 	dotfileName       = ".envoke"
 	localOverrideName = ".envoke.local"
-	globalConfigName  = "config.toml"
+	globalConfigName  = "config.yaml"
 	appDirName        = "envoke"
 )
 
@@ -72,8 +75,8 @@ func Load(projectDir string) (*Loaded, error) {
 // registerExplicitBackendConfigs stores backend configs in the registry for lazy creation.
 // This allows config loading to succeed even if backend packages aren't imported yet.
 func registerExplicitBackendConfigs(global GlobalConfig) {
-	for _, bc := range global.Backends {
-		backend.DefaultRegistry.RegisterExplicitConfig(bc.Name, bc.Type, bc.Options)
+	for name, bc := range global.Backends {
+		backend.DefaultRegistry.RegisterExplicitConfig(name, bc.Type, bc.Config)
 	}
 }
 
@@ -89,6 +92,7 @@ func loadGlobal() (GlobalConfig, error) {
 	if err := decodeFile(path, &cfg); err != nil {
 		return GlobalConfig{}, err
 	}
+	expandEnvInGlobalConfig(&cfg)
 	applyDefaults(&cfg)
 	return cfg, nil
 }
@@ -101,9 +105,9 @@ func applyDefaults(cfg *GlobalConfig) {
 
 // GlobalConfigPath returns the path to the global configuration file.
 // Platform-specific paths:
-//   - Linux: $XDG_CONFIG_HOME/envoke/config.toml or ~/.config/envoke/config.toml
-//   - macOS: ~/Library/Application Support/envoke/config.toml
-//   - Windows: %APPDATA%\envoke\config.toml
+//   - Linux: $XDG_CONFIG_HOME/envoke/config.yaml or ~/.config/envoke/config.yaml
+//   - macOS: ~/Library/Application Support/envoke/config.yaml
+//   - Windows: %APPDATA%\envoke\config.yaml
 func GlobalConfigPath() (string, error) {
 	dir, err := defaultConfigDir()
 	if err != nil {
@@ -117,17 +121,26 @@ func loadDotfile(path string) (DotFile, error) {
 	if err := decodeFile(path, &df); err != nil {
 		return DotFile{}, err
 	}
+	expandEnvInDotFile(&df)
 	return df, nil
 }
 
-// decodeFile parses a TOML file into v. If the file does not exist the call
+// decodeFile parses a YAML file into v. If the file does not exist the call
 // is a no-op and v is left at its zero value.
 func decodeFile(path string, v any) error {
-	_, err := toml.DecodeFile(path, v)
+	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+
+	if len(data) == 0 {
+		return nil
+	}
+
+	if err := yaml.Unmarshal(data, v); err != nil {
 		return fmt.Errorf("parse %s: %w", path, err)
 	}
 	return nil
@@ -135,22 +148,32 @@ func decodeFile(path string, v any) error {
 
 // merge overlays local on top of base. Namespaces with the same name in local
 // replace those in base; namespaces only in local are appended.
-func merge(base, local DotFile) []Namespace {
-	out := make([]Namespace, len(base.Namespaces))
-	copy(out, base.Namespaces)
+func merge(base, local DotFile) []NamespaceEntry {
+	// Collect all namespace names
+	namespaceMap := make(map[string]NamespaceEntry)
 
-	for _, ln := range local.Namespaces {
-		found := false
-		for i, bn := range out {
-			if bn.Name == ln.Name {
-				out[i] = ln
-				found = true
-				break
-			}
-		}
-		if !found {
-			out = append(out, ln)
+	// Add base namespaces first
+	for name, ns := range base.Namespaces {
+		namespaceMap[name] = NamespaceEntry{
+			Name:    name,
+			Backend: ns.Backend,
+			Options: ns.Options,
 		}
 	}
-	return out
+
+	// Overlay local namespaces (they take precedence)
+	for name, ns := range local.Namespaces {
+		namespaceMap[name] = NamespaceEntry{
+			Name:    name,
+			Backend: ns.Backend,
+			Options: ns.Options,
+		}
+	}
+
+	// Convert map to slice
+	result := make([]NamespaceEntry, 0, len(namespaceMap))
+	for _, entry := range namespaceMap {
+		result = append(result, entry)
+	}
+	return result
 }

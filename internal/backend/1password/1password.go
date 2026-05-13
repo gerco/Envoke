@@ -18,14 +18,28 @@ import (
 
 const backendName = "1password"
 
+// opConfig holds the typed configuration for the 1Password backend.
+type opConfig struct {
+	Token string
+}
+
+// parseConfig converts the raw options map into a typed opConfig.
+func parseConfig(opts map[string]string) (*opConfig, error) {
+	token, ok := opts["token"]
+	if !ok {
+		return nil, fmt.Errorf("1password backend requires 'token' option (service account token)")
+	}
+	return &opConfig{Token: token}, nil
+}
+
 func init() {
 	// Register as explicit factory (with token from config options)
 	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
-		token, ok := opts["token"]
-		if !ok {
-			return nil, fmt.Errorf("1password backend requires 'token' option (service account token)")
+		cfg, err := parseConfig(opts)
+		if err != nil {
+			return nil, err
 		}
-		return New(token)
+		return New(cfg.Token)
 	})
 	// Register as default (zero-config) factory using OP_SERVICE_ACCOUNT_TOKEN env var
 	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, check1PasswordAvailable)
