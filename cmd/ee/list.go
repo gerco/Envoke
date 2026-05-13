@@ -9,8 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"git.dries.info/gerco/envoke/internal/config"
-
-
 )
 
 func init() {

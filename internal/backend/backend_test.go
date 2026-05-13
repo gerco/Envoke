@@ -8,9 +8,9 @@ import (
 
 type fakeBackend struct{}
 
-func (f *fakeBackend) Get(_, _ string) (string, error)  { return "val", nil }
-func (f *fakeBackend) Set(_, _, _ string) error          { return nil }
-func (f *fakeBackend) List(_ string) ([]string, error)   { return []string{"k"}, nil }
+func (f *fakeBackend) Get(_, _ string) (string, error) { return "val", nil }
+func (f *fakeBackend) Set(_, _, _ string) error        { return nil }
+func (f *fakeBackend) List(_ string) ([]string, error) { return []string{"k"}, nil }
 
 func TestRegisterAndNew(t *testing.T) {
 	backend.Register("fake", func(_ map[string]string) (backend.Backend, error) {

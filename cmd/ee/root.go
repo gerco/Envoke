@@ -8,8 +8,6 @@ import (
 
 	"git.dries.info/gerco/envoke/internal/config"
 	"git.dries.info/gerco/envoke/internal/runner"
-
-
 )
 
 var rootCmd = &cobra.Command{
