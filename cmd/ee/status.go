@@ -37,28 +37,38 @@ var statusCmd = &cobra.Command{
 			status string
 		})
 
-		// Add implicit (default) backends — skip ones disabled in config
-		for _, name := range backend.DefaultRegistry.DefaultNames() {
+		// Add registered backends (from compiled-in backends)
+		for _, name := range backend.Names() {
 			if backend.DefaultRegistry.IsDisabled(name) {
+				allBackends[name] = struct {
+					typ    string
+					status string
+				}{typ: "registered", status: "✓ compiled in"}
 				continue
 			}
-			available, reason := backend.DefaultRegistry.CheckDefault(name)
+			// Try to resolve to check if it's available
+			_, err := backend.DefaultRegistry.Resolve(name)
 			status := "✓ available"
-			if !available {
-				status = fmt.Sprintf("✗ needs %s", reason)
+			if err != nil {
+				status = fmt.Sprintf("✗ %s", err)
 			}
 			allBackends[name] = struct {
 				typ    string
 				status string
-			}{typ: "implicit", status: status}
+			}{typ: "registered", status: status}
 		}
 
 		// Add explicit backends from config
 		for name, bc := range cfg.Global.Backends {
+			status := fmt.Sprintf("(%s)", bc.Type)
+			// Check if the explicit backend can be resolved
+			if _, err := backend.DefaultRegistry.Resolve(name); err != nil {
+				status = fmt.Sprintf("✗ %s", err)
+			}
 			allBackends[name] = struct {
 				typ    string
 				status string
-			}{typ: "explicit", status: fmt.Sprintf("(%s)", bc.Type)}
+			}{typ: "explicit", status: status}
 		}
 
 		// Sort and print

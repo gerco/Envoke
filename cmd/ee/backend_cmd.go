@@ -58,12 +58,12 @@ var backendListCmd = &cobra.Command{
 		type row struct{ name, kind, detail string }
 		var rows []row
 
-		for _, name := range backend.DefaultRegistry.DefaultNames() {
+		for _, name := range backend.Names() {
 			detail := "enabled"
 			if backend.DefaultRegistry.IsDisabled(name) {
 				detail = "disabled"
 			}
-			rows = append(rows, row{name, "implicit", detail})
+			rows = append(rows, row{name, "registered", detail})
 		}
 		for name, bc := range cfg.Backends {
 			rows = append(rows, row{name, "explicit", bc.Type})
@@ -250,8 +250,8 @@ var backendRemoveCmd = &cobra.Command{
 			return nil
 		}
 
-		// For implicit (compiled-in) backends, disable instead.
-		if backend.DefaultRegistry.HasDefault(name) {
+		// For registered (compiled-in) backends, disable instead.
+		if backend.DefaultRegistry.HasBackend(name) {
 			// Check if already disabled
 			for _, n := range cfg.DisabledImplicitBackends {
 				if n == name {

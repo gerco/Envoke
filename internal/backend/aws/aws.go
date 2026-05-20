@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"git.dries.info/gerco/envoke/internal/backend"
@@ -39,39 +38,12 @@ func parseConfig(opts map[string]string) (*awsConfig, error) {
 }
 
 func init() {
-	// Register as explicit factory (with options from config)
-	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
+	backend.Register(backendName, func(opts map[string]string, isDefault bool) (backend.Backend, error) {
+		if isDefault {
+			return NewDefaultBackend()
+		}
 		return New(opts)
 	})
-	// Register as default (zero-config) factory using SDK default credential chain
-	// Provide fast check function that just looks at env vars (no network calls)
-	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, checkAWSAvailable)
-}
-
-// checkAWSAvailable does a fast check for AWS credentials without network calls.
-func checkAWSAvailable() (bool, string) {
-	if os.Getenv("AWS_ACCESS_KEY_ID") != "" && os.Getenv("AWS_SECRET_ACCESS_KEY") != "" {
-		return true, ""
-	}
-	if os.Getenv("AWS_PROFILE") != "" {
-		return true, ""
-	}
-	if os.Getenv("AWS_SDK_LOAD_CONFIG") != "" {
-		return true, ""
-	}
-	if credentialsFileExists() {
-		return true, ""
-	}
-	return false, "AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY, AWS_PROFILE, AWS_SDK_LOAD_CONFIG, or ~/.aws/credentials"
-}
-
-func credentialsFileExists() bool {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return false
-	}
-	info, err := os.Stat(home + "/.aws/credentials")
-	return err == nil && !info.IsDir()
 }
 
 // secretsManagerClient is the subset of secretsmanager.Client used by awsBackend.
@@ -112,20 +84,13 @@ func New(opts map[string]string) (*awsBackend, error) {
 
 // NewDefaultBackend creates an AWS Secrets Manager backend with SDK default credential chain.
 // Uses: env vars → ~/.aws/credentials → ~/.aws/config → IAM role.
-// Returns (nil, error) if credentials are unavailable (checked without making API calls).
+// Credentials are read from environment on the first API call (lazy initialization).
 func NewDefaultBackend() (backend.Backend, error) {
 	ctx := context.Background()
 
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("aws config: %w", err)
-	}
-
-	// Check credentials exist without making an API call
-	// This retrieves credentials from the chain without validating them remotely
-	_, err = cfg.Credentials.Retrieve(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("aws credentials not available: %w", err)
 	}
 
 	client := secretsmanager.NewFromConfig(cfg)

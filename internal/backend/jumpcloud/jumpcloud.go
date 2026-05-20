@@ -23,24 +23,16 @@ func parseConfig(opts map[string]string) (*jumpcloudConfig, error) {
 }
 
 func init() {
-	// Register as explicit factory (with options from config)
-	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
+	backend.Register(backendName, func(opts map[string]string, isDefault bool) (backend.Backend, error) {
+		if isDefault {
+			return NewDefaultBackend()
+		}
 		_, err := parseConfig(opts)
 		if err != nil {
 			return nil, err
 		}
 		return &jumpcloudBackend{}, nil
 	})
-	// Register as default (zero-config) factory using JUMPCLOUD_API_KEY env var
-	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, checkJumpCloudAvailable)
-}
-
-// checkJumpCloudAvailable does a fast check for JumpCloud env var.
-func checkJumpCloudAvailable() (bool, string) {
-	if os.Getenv("JUMPCLOUD_API_KEY") != "" {
-		return true, ""
-	}
-	return false, "JUMPCLOUD_API_KEY"
 }
 
 type jumpcloudBackend struct{}

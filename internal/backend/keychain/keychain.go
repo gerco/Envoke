@@ -27,17 +27,16 @@ func parseConfig(opts map[string]string) (*keychainConfig, error) {
 }
 
 func init() {
-	// Register as explicit factory (with options from config)
-	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
+	backend.Register(backendName, func(opts map[string]string, isDefault bool) (backend.Backend, error) {
+		if isDefault {
+			return NewDefaultBackend()
+		}
 		_, err := parseConfig(opts)
 		if err != nil {
 			return nil, err
 		}
 		return New(opts)
 	})
-	// Register as default (zero-config) factory - always available
-	// Pass nil for check func since NewDefaultBackend is fast (just returns struct)
-	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, nil)
 }
 
 // keychainBackend stores a keyring.Keyring opened per namespace on first use.

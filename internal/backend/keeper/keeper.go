@@ -29,24 +29,16 @@ func parseConfig(opts map[string]string) (*keeperConfig, error) {
 }
 
 func init() {
-	// Register as explicit factory (with options from config)
-	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
+	backend.Register(backendName, func(opts map[string]string, isDefault bool) (backend.Backend, error) {
+		if isDefault {
+			return NewDefaultBackend()
+		}
 		_, err := parseConfig(opts)
 		if err != nil {
 			return nil, err
 		}
 		return &keeperBackend{}, nil
 	})
-	// Register as default (zero-config) factory using KSM_CONFIG env var
-	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, checkKeeperAvailable)
-}
-
-// checkKeeperAvailable does a fast check for Keeper env var.
-func checkKeeperAvailable() (bool, string) {
-	if os.Getenv("KSM_CONFIG") != "" {
-		return true, ""
-	}
-	return false, "KSM_CONFIG"
 }
 
 type keeperBackend struct{}
