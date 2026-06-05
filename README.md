@@ -79,14 +79,14 @@ Envoke walks up from the current directory looking for `.envoke`. The first `.en
 Configuration is split across three layers, merged in order:
 
 ```
-~/.config/envoke/config.yaml    ← your backends, your credentials  (never committed)
+<global config>     ← your backends, your credentials  (never committed)
 <project>/.envoke               ← what this project needs           (committed to git)
 <project>/.envoke.local         ← your personal overrides           (gitignored)
 ```
 
 On Windows the global config lives at `%APPDATA%\envoke\config.yaml`. On macOS, `~/Library/Application Support/envoke/config.yaml`. On Linux, `$XDG_CONFIG_HOME/envoke/config.yaml`, defaulting to `~/.config/envoke/config.yaml`.
 
-### Global config (`~/.config/envoke/config.yaml`)
+### Global config
 
 Describes how to reach each backend. This file is never committed. Use `ee config edit` to open it in your editor.
 
@@ -109,6 +109,7 @@ Each backend entry has:
 
 | Field | Description |
 |-------|-------------|
+| map key | The backend name (e.g. `aws-dev`) — referenced as `backend:` in `.envoke` |
 | `type` | Backend type: `aws`, `1password`, `keeper`, `jumpcloud`, or `keychain` |
 | additional keys | Backend-specific options inline alongside `type` (see [Backends](#backends)) |
 
@@ -138,6 +139,7 @@ Each namespace entry has:
 
 | Field | Description |
 |-------|-------------|
+| map key | The namespace identifier (e.g. `db-dev`) — also the secret group name in the backend |
 | `backend` | Must match a backend name in the global config or be an implicit backend |
 | `options` | Optional map: override backend options for this namespace only |
 
