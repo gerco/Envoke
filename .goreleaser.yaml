@@ -20,7 +20,7 @@ builds:
       - amd64
       - arm64
     flags:
-      - -tags=1password,keeper,jumpcloud,aws
+      - -tags=aws
     ldflags:
       - -s -w -X main.version={{ .Version }}
 
