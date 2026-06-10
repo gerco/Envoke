@@ -79,88 +79,79 @@ Envoke walks up from the current directory looking for `.envoke`. The first `.en
 Configuration is split across three layers, merged in order:
 
 ```
-~/.config/envoke/config.toml    ← your backends, your credentials  (never committed)
+<global config>     ← your backends, your credentials  (never committed)
 <project>/.envoke               ← what this project needs           (committed to git)
 <project>/.envoke.local         ← your personal overrides           (gitignored)
 ```
 
-On Windows the global config lives at `%APPDATA%\envoke\config.toml`. On Linux/macOS, `$XDG_CONFIG_HOME/envoke/config.toml` is used, defaulting to `~/.config/envoke/config.toml`.
+On Windows the global config lives at `%APPDATA%\envoke\config.yaml`. On macOS, `~/Library/Application Support/envoke/config.yaml`. On Linux, `$XDG_CONFIG_HOME/envoke/config.yaml`, defaulting to `~/.config/envoke/config.yaml`.
 
-### Global config (`~/.config/envoke/config.toml`)
+### Global config
 
 Describes how to reach each backend. This file is never committed. Use `ee config edit` to open it in your editor.
 
-```toml
-[[backend]]
-name = "aws-dev"
-type = "aws"
-[backend.options]
-region = "us-east-1"
-prefix = "myteam-dev/"
-
-[[backend]]
-name = "aws-prod"
-type = "aws"
-[backend.options]
-region = "us-east-1"
-prefix = "myteam-prod/"
-
-[[backend]]
-name = "op-service"
-type = "1password"
-[backend.options]
-token = "ops_..."
+```yaml
+backends:
+  aws-dev:
+    type: aws
+    region: us-east-1
+    prefix: myteam-dev/
+  aws-prod:
+    type: aws
+    region: us-east-1
+    prefix: myteam-prod/
+  op-service:
+    type: 1password
+    token: ops_...
 ```
 
-Each `[[backend]]` entry has:
+Each backend entry has:
 
 | Field | Description |
 |-------|-------------|
-| `name` | Identifier referenced in `.envoke` |
+| map key | The backend name (e.g. `aws-dev`) — referenced as `backend:` in `.envoke` |
 | `type` | Backend type: `aws`, `1password`, `keeper`, `jumpcloud`, or `keychain` |
-| `[backend.options]` | Backend-specific key/value options (see [Backends](#backends)) |
+| additional keys | Backend-specific options inline alongside `type` (see [Backends](#backends)) |
 
 You can also disable implicit (zero-config) backends that you don't want to use:
 
-```toml
-disabled_implicit_backends = ["keychain", "aws"]
+```yaml
+disabled_implicit_backends:
+  - keychain
+  - aws
 ```
 
 ### Project dotfile (`.envoke`)
 
 Committed to git. Describes which namespaces this project needs and which backend holds them.
 
-```toml
-[[namespace]]
-name = "db-dev"
-backend = "aws-dev"
-
-[[namespace]]
-name = "local-creds"
-backend = "keychain"
-
-[[namespace]]
-name = "stripe"
-backend = "aws-dev"
+```yaml
+namespaces:
+  db-dev:
+    backend: aws-dev
+  local-creds:
+    backend: keychain
+  stripe:
+    backend: aws-dev
 ```
 
-Each `[[namespace]]` entry has:
+Each namespace entry has:
 
 | Field | Description |
 |-------|-------------|
-| `name` | Namespace identifier, also the secret group name in the backend |
-| `backend` | Must match a `name` in the global config or be an implicit backend |
-| `[namespace.options]` | Optional: override backend options for this namespace only |
+| map key | The namespace identifier (e.g. `db-dev`) — also the secret group name in the backend |
+| `backend` | Must match a backend name in the global config or be an implicit backend |
+| `options` | Optional map: override backend options for this namespace only |
 
 ### Local overrides (`.envoke.local`)
 
 Same format as `.envoke`. Namespaces with the same name replace those from `.envoke`; new namespaces are appended. Add `.envoke.local` to `.gitignore`.
 
-```toml
+```yaml
 # Override the db-dev namespace to use a local keychain instead of AWS
-[[namespace]]
-name = "db-dev"
-backend = "keychain"
+namespaces:
+  db-dev:
+    backend: keychain
 ```
 
 ---
@@ -180,19 +171,18 @@ Uses the OS credential store. No extra config required — the `keychain` backen
 
 Stores all keys in a namespace as a single JSON object in one AWS secret. This minimises API calls and cost.
 
-```toml
-[[backend]]
-name = "aws-dev"
-type = "aws"
-[backend.options]
-region = "us-east-1"
-prefix = "myteam/"
+```yaml
+backends:
+  aws-dev:
+    type: aws
+    region: us-east-1
+    prefix: myteam/
 ```
 
 | Option | Description |
 |--------|-------------|
 | `region` | AWS region. Overrides the region from your AWS credentials/environment. |
-| `prefix` | Prepended to the namespace name to form the secret name. For example, `prefix = "myteam/"` and namespace `"db-dev"` → secret name `"myteam/db-dev"`. |
+| `prefix` | Prepended to the namespace name to form the secret name. For example, `prefix: myteam/` and namespace `db-dev` → secret name `myteam/db-dev`. |
 
 AWS credentials are resolved using the standard AWS SDK credential chain: environment variables, `~/.aws/credentials`, IAM instance profiles, etc.
 
@@ -202,12 +192,11 @@ AWS credentials are resolved using the standard AWS SDK credential chain: enviro
 
 Uses a 1Password service account token. The service account must have read access to the relevant vaults. Write operations are not supported (service accounts are read-only).
 
-```toml
-[[backend]]
-name = "op-service"
-type = "1password"
-[backend.options]
-token = "ops_..."
+```yaml
+backends:
+  op-service:
+    type: 1password
+    token: ops_...
 ```
 
 | Option | Description |
