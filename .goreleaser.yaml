@@ -52,11 +52,8 @@ brews:
     homepage: "https://git.dries.info/gerco/Envoke"
     description: "Environment secrets manager with pluggable backends"
     license: "MIT"
-    goos:
-      - darwin
-    goarch:
-      - amd64
-      - arm64
+    ids:
+      - envoke
     install: |
       bin.install "envoke"
       bin.install_symlink "envoke" => "ee"
