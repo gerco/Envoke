@@ -9,24 +9,101 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build-darwin-amd64:
     if: github.server_url == 'https://github.com'
-    runs-on: ubuntu-latest
+    runs-on: macos-15-intel
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+      - name: Build
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist/darwin_amd64
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+            go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" \
+            -o dist/darwin_amd64/envoke ./cmd/ee
+
+      - uses: actions/upload-artifact@v4
         with:
-          args: release --clean
+          name: dist-darwin-amd64
+          path: dist/
+          if-no-files-found: error
+
+  build-darwin-arm64:
+    if: github.server_url == 'https://github.com'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist/darwin_arm64
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
+            go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" \
+            -o dist/darwin_arm64/envoke ./cmd/ee
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-darwin-arm64
+          path: dist/
+          if-no-files-found: error
+
+  build-linux-windows:
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist/linux_amd64 dist/linux_arm64 dist/windows_amd64 dist/windows_arm64
+          CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" -o dist/linux_amd64/envoke       ./cmd/ee
+          CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" -o dist/linux_arm64/envoke       ./cmd/ee
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" -o dist/windows_amd64/envoke.exe ./cmd/ee
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" -o dist/windows_arm64/envoke.exe ./cmd/ee
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-linux-windows
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    needs: [build-darwin-amd64, build-darwin-arm64, build-linux-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          merge-multiple: true
+
+      - name: Release
+        run: bash scripts/release.sh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
