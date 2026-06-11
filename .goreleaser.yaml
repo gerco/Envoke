@@ -7,14 +7,42 @@ before:
     - go mod tidy
 
 builds:
-  - id: envoke
+  - id: envoke-darwin
+    binary: envoke
+    main: ./cmd/ee
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -tags=aws
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+  - id: envoke-linux
     binary: envoke
     main: ./cmd/ee
     env:
       - CGO_ENABLED=0
     goos:
-      - darwin
       - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -tags=aws
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+  - id: envoke-windows
+    binary: envoke
+    main: ./cmd/ee
+    env:
+      - CGO_ENABLED=0
+    goos:
       - windows
     goarch:
       - amd64
@@ -25,7 +53,10 @@ builds:
       - -s -w -X main.version={{ .Version }}
 
 archives:
-  - id: envoke
+  - ids:
+      - envoke-darwin
+      - envoke-linux
+      - envoke-windows
     formats: [tar.gz]
     name_template: "envoke_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
@@ -53,7 +84,8 @@ brews:
     description: "Environment secrets manager with pluggable backends"
     license: "MIT"
     ids:
-      - envoke
+      - envoke-darwin
+      - envoke-linux
     install: |
       bin.install "envoke"
       bin.install_symlink "envoke" => "ee"

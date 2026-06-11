@@ -9,8 +9,42 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     if: github.server_url == 'https://github.com'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: macos-latest
+          - os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build with GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          args: build --split --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -23,10 +57,16 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Run GoReleaser
+      - name: Download all dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          merge-multiple: true
+
+      - name: Release with GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
-          args: release --clean
+          args: release --merge
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
