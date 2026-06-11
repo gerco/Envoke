@@ -58,7 +58,7 @@ func Load(projectDir string) (*Loaded, error) {
 
 	base, err := loadDotfile(filepath.Join(projectDir, dotfileName))
 	if err != nil {
-		return nil, fmt.Errorf("dotfile: %w", err)
+		return nil, fmt.Errorf("project config: %w", err)
 	}
 
 	local, err := loadDotfile(filepath.Join(projectDir, localOverrideName))
@@ -90,7 +90,7 @@ func loadGlobal() (GlobalConfig, error) {
 
 	var cfg GlobalConfig
 	if err := decodeFile(path, &cfg); err != nil {
-		return GlobalConfig{}, err
+		return GlobalConfig{}, fmt.Errorf("%s: %w", path, err)
 	}
 	expandEnvInGlobalConfig(&cfg)
 	applyDefaults(&cfg)
@@ -119,31 +119,29 @@ func GlobalConfigPath() (string, error) {
 func loadDotfile(path string) (DotFile, error) {
 	var df DotFile
 	if err := decodeFile(path, &df); err != nil {
-		return DotFile{}, err
+		return DotFile{}, fmt.Errorf("%s: %w", path, err)
 	}
 	expandEnvInDotFile(&df)
 	return df, nil
 }
 
 // decodeFile parses a YAML file into v. If the file does not exist the call
-// is a no-op and v is left at its zero value.
+// is a no-op and v is left at its zero value. Errors do not include the file
+// path — callers are expected to wrap with it for context.
 func decodeFile(path string, v any) error {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("read %s: %w", path, err)
+		return fmt.Errorf("read: %w", err)
 	}
 
 	if len(data) == 0 {
 		return nil
 	}
 
-	if err := yaml.Unmarshal(data, v); err != nil {
-		return fmt.Errorf("parse %s: %w", path, err)
-	}
-	return nil
+	return yaml.Unmarshal(data, v)
 }
 
 // merge overlays local on top of base, preserving insertion order.
