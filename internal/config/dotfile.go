@@ -16,6 +16,10 @@ import (
 func EnsureNamespace(projectDir, namespaceName, backendName string) (bool, error) {
 	path := filepath.Join(projectDir, dotfileName)
 
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false, nil
+	}
+
 	existing, err := loadDotfile(path)
 	if err != nil {
 		return false, fmt.Errorf("read dotfile: %w", err)
