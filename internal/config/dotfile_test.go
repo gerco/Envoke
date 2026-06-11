@@ -7,19 +7,40 @@ import (
 	"testing"
 )
 
-func TestEnsureNamespace_CreatesFile(t *testing.T) {
+func TestEnsureNamespace_NoFileNoCreate(t *testing.T) {
 	dir := t.TempDir()
 	added, err := EnsureNamespace(dir, "test-ns", "local")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if added {
+		t.Fatal("expected added=false when .envoke does not exist")
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".envoke")); !os.IsNotExist(err) {
+		t.Fatal("expected .envoke to not be created")
+	}
+}
+
+func TestEnsureNamespace_EmptyFile(t *testing.T) {
+	dir := t.TempDir()
+	// Create an empty .envoke to simulate an initialised-but-blank project file.
+	f, err := os.Create(filepath.Join(dir, ".envoke"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	added, err := EnsureNamespace(dir, "test-ns", "local")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if !added {
-		t.Fatal("expected added=true for new namespace")
+		t.Fatal("expected added=true for new namespace in empty file")
 	}
 
 	data, err := os.ReadFile(filepath.Join(dir, ".envoke"))
 	if err != nil {
-		t.Fatalf("expected .envoke to be created: %v", err)
+		t.Fatalf("unexpected read error: %v", err)
 	}
 	content := string(data)
 	if !strings.Contains(content, "name: test-ns") {
@@ -32,19 +53,20 @@ func TestEnsureNamespace_CreatesFile(t *testing.T) {
 
 func TestEnsureNamespace_Idempotent(t *testing.T) {
 	dir := t.TempDir()
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  test-ns:
+    backend: local
+`)
 
-	if _, err := EnsureNamespace(dir, "test-ns", "local"); err != nil {
-		t.Fatal(err)
-	}
 	added, err := EnsureNamespace(dir, "test-ns", "local")
 	if err != nil {
-		t.Fatalf("unexpected error on second call: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if added {
 		t.Fatal("expected added=false when namespace already present")
 	}
 
-	// File should still be valid YAML with exactly one namespace.
 	df, err := loadDotfile(filepath.Join(dir, ".envoke"))
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
