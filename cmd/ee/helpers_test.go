@@ -50,8 +50,8 @@ func (m *memBackend) List(ns string) ([]string, error) {
 type errBackend struct{ err error }
 
 func (e *errBackend) Get(_, _ string) (string, error) { return "", e.err }
-func (e *errBackend) Set(_, _, _ string) error         { return e.err }
-func (e *errBackend) List(_ string) ([]string, error)  { return nil, e.err }
+func (e *errBackend) Set(_, _, _ string) error        { return e.err }
+func (e *errBackend) List(_ string) ([]string, error) { return nil, e.err }
 
 // registerTestBackend injects b into DefaultRegistry under name.
 // The registration persists for the lifetime of the test process, so callers

@@ -13,7 +13,7 @@ default:
 # Build with all backends included
 # Go automatically adds .exe extension on Windows
 build:
-	go build -tags "1password,keeper,jumpcloud,aws" ./cmd/ee
+	go build -tags "aws" ./cmd/ee
 
 # Build minimal (no backends)
 # Go automatically adds .exe extension on Windows
