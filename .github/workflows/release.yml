@@ -9,7 +9,37 @@ permissions:
   contents: write
 
 jobs:
-  build-darwin:
+  build-darwin-amd64:
+    if: github.server_url == 'https://github.com'
+    runs-on: macos-13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build darwin/amd64 binary
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p binaries/darwin_amd64
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+            go build -tags aws \
+            -ldflags "-s -w -X main.version=${VERSION}" \
+            -o binaries/darwin_amd64/envoke ./cmd/ee
+
+      - name: Upload darwin/amd64 binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-darwin-amd64
+          path: binaries/
+          if-no-files-found: error
+
+  build-darwin-arm64:
     if: github.server_url == 'https://github.com'
     runs-on: macos-latest
     steps:
@@ -23,28 +53,19 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Build darwin binaries
+      - name: Build darwin/arm64 binary
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          mkdir -p binaries/darwin_arm64 binaries/darwin_amd64
-
-          # arm64 — native build, CGO works out of the box
+          mkdir -p binaries/darwin_arm64
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
             go build -tags aws \
             -ldflags "-s -w -X main.version=${VERSION}" \
             -o binaries/darwin_arm64/envoke ./cmd/ee
 
-          # amd64 — cross-compile; Apple clang supports -arch x86_64 on arm64 hosts
-          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
-            CC="$(xcrun -find clang) -arch x86_64" \
-            go build -tags aws \
-            -ldflags "-s -w -X main.version=${VERSION}" \
-            -o binaries/darwin_amd64/envoke ./cmd/ee
-
-      - name: Upload darwin binaries
+      - name: Upload darwin/arm64 binary
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-darwin
+          name: binaries-darwin-arm64
           path: binaries/
           if-no-files-found: error
 
@@ -96,7 +117,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [build-darwin, build-linux-windows]
+    needs: [build-darwin-amd64, build-darwin-arm64, build-linux-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
