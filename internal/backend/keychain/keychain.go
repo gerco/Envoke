@@ -64,8 +64,9 @@ func (k *keychainBackend) ring(namespace string) (keyring.Keyring, error) {
 		return r, nil
 	}
 	r, err := keyring.Open(keyring.Config{
-		ServiceName:     "envoke/" + namespace,
-		AllowedBackends: allowedBackends(),
+		ServiceName:              "envoke/" + namespace,
+		AllowedBackends:          allowedBackends(),
+		KeychainTrustApplication: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("open keychain namespace %q: %w", namespace, err)
