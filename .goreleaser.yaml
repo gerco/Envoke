@@ -7,57 +7,21 @@ before:
     - go mod tidy
 
 builds:
-  - id: envoke-darwin
+  - id: envoke
+    builder: prebuilt
     binary: envoke
-    main: ./cmd/ee
-    env:
-      - CGO_ENABLED=1
     goos:
       - darwin
-    goarch:
-      - amd64
-      - arm64
-    flags:
-      - -tags=aws
-    ldflags:
-      - -s -w -X main.version={{ .Version }}
-
-  - id: envoke-linux
-    binary: envoke
-    main: ./cmd/ee
-    env:
-      - CGO_ENABLED=0
-    goos:
       - linux
-    goarch:
-      - amd64
-      - arm64
-    flags:
-      - -tags=aws
-    ldflags:
-      - -s -w -X main.version={{ .Version }}
-
-  - id: envoke-windows
-    binary: envoke
-    main: ./cmd/ee
-    env:
-      - CGO_ENABLED=0
-    goos:
       - windows
     goarch:
       - amd64
       - arm64
-    flags:
-      - -tags=aws
-    ldflags:
-      - -s -w -X main.version={{ .Version }}
+    prebuilt:
+      path: binaries/{{ .Os }}_{{ .Arch }}/{{ .Binary }}{{ if eq .Os "windows" }}.exe{{ end }}
 
 archives:
-  - ids:
-      - envoke-darwin
-      - envoke-linux
-      - envoke-windows
-    formats: [tar.gz]
+  - formats: [tar.gz]
     name_template: "envoke_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
@@ -83,9 +47,6 @@ brews:
     homepage: "https://git.dries.info/gerco/Envoke"
     description: "Environment secrets manager with pluggable backends"
     license: "MIT"
-    ids:
-      - envoke-darwin
-      - envoke-linux
     install: |
       bin.install "envoke"
       bin.install_symlink "envoke" => "ee"
