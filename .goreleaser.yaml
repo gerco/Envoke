@@ -17,8 +17,6 @@ builds:
     goarch:
       - amd64
       - arm64
-    prebuilt:
-      path: binaries/{{ .Os }}_{{ .Arch }}/{{ .Binary }}{{ if eq .Os "windows" }}.exe{{ end }}
 
 archives:
   - formats: [tar.gz]
