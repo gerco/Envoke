@@ -99,12 +99,12 @@ func TestSetCmd_WithBackendFlag(t *testing.T) {
 	}
 }
 
-func TestSetCmd_CreatesEnvokeFile(t *testing.T) {
+func TestSetCmd_NoEnvokeFileNoCreate(t *testing.T) {
 	dir := t.TempDir()
 	withProjectDir(t, dir)
 
 	fake := newMemBackend()
-	const backendKey = "test-set-creates-file"
+	const backendKey = "test-set-no-create"
 	registerTestBackend(backendKey, fake)
 
 	if err := setCmd.Flags().Set("backend", backendKey); err != nil {
@@ -112,17 +112,22 @@ func TestSetCmd_CreatesEnvokeFile(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = setCmd.Flags().Set("backend", "") })
 
-	// No .envoke file exists yet.
+	// No .envoke file exists.
 	if err := setCmd.RunE(setCmd, []string{"newns", "TOKEN", "abc"}); err != nil {
 		t.Fatalf("setCmd.RunE: %v", err)
 	}
 
-	// .envoke should have been created with the namespace entry.
-	data, err := os.ReadFile(filepath.Join(dir, ".envoke"))
+	// Secret must still be stored in the backend.
+	got, err := fake.Get("newns", "TOKEN")
 	if err != nil {
-		t.Fatalf("read .envoke: %v", err)
+		t.Fatalf("Get after set: %v", err)
 	}
-	if len(data) == 0 {
-		t.Error(".envoke file is empty, expected namespace entry")
+	if got != "abc" {
+		t.Errorf("got %q, want %q", got, "abc")
+	}
+
+	// .envoke must not have been created.
+	if _, err := os.Stat(filepath.Join(dir, ".envoke")); !os.IsNotExist(err) {
+		t.Error("expected .envoke to not be created when it did not already exist")
 	}
 }

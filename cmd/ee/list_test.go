@@ -87,6 +87,70 @@ func TestListOne_BackendError_ReturnsError(t *testing.T) {
 	}
 }
 
+func TestListOne_NoEnvoke_DefaultsToKeychain(t *testing.T) {
+	// getBackendName returns "keychain" for any namespace not in cfg.
+	cfg := &config.Loaded{}
+	got := getBackendName(cfg, "any-ns")
+	if got != "keychain" {
+		t.Errorf("expected default backend %q, got %q", "keychain", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests for listNamespace (explicit backend override path)
+// ---------------------------------------------------------------------------
+
+func TestListNamespace_PrintsSortedKeys(t *testing.T) {
+	fake := newMemBackend()
+	fake.data["myns"] = map[string]string{"ZEBRA": "z", "ALPHA": "a"}
+	registerTestBackend("test-listNamespace-sorted", fake)
+
+	out := captureStdout(t, func() {
+		if err := listNamespace(fake, "myns"); err != nil {
+			t.Errorf("listNamespace: %v", err)
+		}
+	})
+
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	want := []string{"ALPHA", "ZEBRA"}
+	if len(lines) != len(want) {
+		t.Fatalf("got lines %v, want %v", lines, want)
+	}
+	for i, w := range want {
+		if lines[i] != w {
+			t.Errorf("line %d: got %q, want %q", i, lines[i], w)
+		}
+	}
+}
+
+func TestListNamespace_OverridesConfiguredBackend(t *testing.T) {
+	overrideFake := newMemBackend()
+	overrideFake.data["myns"] = map[string]string{"OVERRIDE_KEY": "v"}
+	registerTestBackend("test-listNS-override", overrideFake)
+
+	// Passing the override backend directly bypasses whatever .envoke says.
+	out := captureStdout(t, func() {
+		if err := listNamespace(overrideFake, "myns"); err != nil {
+			t.Errorf("listNamespace: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "OVERRIDE_KEY") {
+		t.Errorf("expected OVERRIDE_KEY in output; got:\n%s", out)
+	}
+}
+
+func TestListNamespace_Empty(t *testing.T) {
+	out := captureStdout(t, func() {
+		if err := listNamespace(newMemBackend(), "myns"); err != nil {
+			t.Errorf("listNamespace: %v", err)
+		}
+	})
+	if out != "" {
+		t.Errorf("expected no output, got %q", out)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Tests for listAll
 // ---------------------------------------------------------------------------
@@ -161,43 +225,5 @@ func TestListAll_BackendError_PrintsErrorInline(t *testing.T) {
 
 	if !strings.Contains(out, "error") {
 		t.Errorf("expected inline error in output; got:\n%s", out)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Tests for listNamespace (explicit backend override path)
-// ---------------------------------------------------------------------------
-
-func TestListNamespace_PrintsSortedKeys(t *testing.T) {
-	fake := newMemBackend()
-	fake.data["myns"] = map[string]string{"ZEBRA": "z", "ALPHA": "a"}
-	registerTestBackend("test-listNamespace-sorted", fake)
-
-	out := captureStdout(t, func() {
-		if err := listNamespace(fake, "myns"); err != nil {
-			t.Errorf("listNamespace: %v", err)
-		}
-	})
-
-	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
-	want := []string{"ALPHA", "ZEBRA"}
-	if len(lines) != len(want) {
-		t.Fatalf("got lines %v, want %v", lines, want)
-	}
-	for i, w := range want {
-		if lines[i] != w {
-			t.Errorf("line %d: got %q, want %q", i, lines[i], w)
-		}
-	}
-}
-
-func TestListNamespace_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
-		if err := listNamespace(newMemBackend(), "myns"); err != nil {
-			t.Errorf("listNamespace: %v", err)
-		}
-	})
-	if out != "" {
-		t.Errorf("expected no output, got %q", out)
 	}
 }
