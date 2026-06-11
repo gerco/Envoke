@@ -11,7 +11,7 @@ permissions:
 jobs:
   build-darwin-amd64:
     if: github.server_url == 'https://github.com'
-    runs-on: macos-14
+    runs-on: macos-15-intel
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
 
   build-darwin-arm64:
     if: github.server_url == 'https://github.com'
-    runs-on: macos-14-arm64
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
