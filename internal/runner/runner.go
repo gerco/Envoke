@@ -68,10 +68,6 @@ func buildEnv(cfg *config.Loaded) ([]string, error) {
 
 	// Process namespaces sequentially, updating environment before each backend resolution
 	for _, ns := range cfg.Namespaces {
-		if Verbose {
-			fmt.Fprintf(os.Stderr, "namespace %q: backend %q\n", ns.Name, ns.Backend)
-		}
-
 		// Update process environment so backends can see accumulated secrets
 		// This enables credential chaining between namespaces
 		for k, v := range envMap {
@@ -90,7 +86,7 @@ func buildEnv(cfg *config.Loaded) ([]string, error) {
 		}
 
 		if Verbose {
-			fmt.Fprintf(os.Stderr, "namespace %q: fetched %d key(s)\n", ns.Name, len(keys))
+			fmt.Fprintf(os.Stderr, "namespace %q: backend %q, fetched %d key(s)\n", ns.Name, ns.Backend, len(keys))
 		}
 
 		for _, key := range keys {
