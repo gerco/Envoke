@@ -197,7 +197,6 @@ namespaces:
 	}
 }
 
-
 func TestLoad_LocalOverrideReplacesInPlace(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, ".envoke", `
