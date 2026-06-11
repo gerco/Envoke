@@ -55,7 +55,7 @@ func TestEnsureNamespace_Idempotent(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, ".envoke", `
 namespaces:
-  test-ns:
+  - name: test-ns
     backend: local
 `)
 

@@ -24,7 +24,7 @@ var listCmd = &cobra.Command{
 
 With no argument, lists keys across all namespaces declared in .envoke.
 With a namespace argument, lists keys in that namespace (defaulting to the
-local backend if the namespace is not declared in .envoke).
+keychain backend if the namespace is not declared in .envoke).
 
 Only key names are printed — never values.`,
 	Args: cobra.MaximumNArgs(1),
