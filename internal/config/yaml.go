@@ -39,15 +39,6 @@ func expandEnvInBackendConfig(bc *BackendConfig) {
 	bc.Config = expandEnvInMap(bc.Config)
 }
 
-// expandEnvInNamespace expands environment variables in a Namespace.
-func expandEnvInNamespace(ns *Namespace) {
-	if ns == nil {
-		return
-	}
-	ns.Backend = expandEnv(ns.Backend)
-	ns.Options = expandEnvInMap(ns.Options)
-}
-
 // expandEnvInGlobalConfig expands all environment variables in a GlobalConfig.
 // It modifies the config in place.
 func expandEnvInGlobalConfig(cfg *GlobalConfig) {
@@ -60,8 +51,8 @@ func expandEnvInGlobalConfig(cfg *GlobalConfig) {
 // expandEnvInDotFile expands all environment variables in a DotFile.
 // It modifies the file in place.
 func expandEnvInDotFile(df *DotFile) {
-	for name, ns := range df.Namespaces {
-		expandEnvInNamespace(&ns)
-		df.Namespaces[name] = ns
+	for i := range df.Namespaces {
+		df.Namespaces[i].Backend = expandEnv(df.Namespaces[i].Backend)
+		df.Namespaces[i].Options = expandEnvInMap(df.Namespaces[i].Options)
 	}
 }

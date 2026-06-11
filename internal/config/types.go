@@ -17,18 +17,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Namespace is one entry in the project dotfile.
-type Namespace struct {
-	// Backend is the name of the backend to use for this namespace.
-	Backend string `yaml:"backend"`
-	// Options are backend-specific key/value pairs that can override the
-	// global backend config for this namespace (e.g. a different vault path).
-	Options map[string]string `yaml:"options,omitempty"`
-}
-
 // DotFile is the parsed representation of .envoke / .envoke.local.
+// Namespaces are a YAML sequence so that insertion order is preserved for
+// backend chaining.
 type DotFile struct {
-	Namespaces map[string]Namespace `yaml:"namespaces,omitempty"`
+	Namespaces []NamespaceEntry `yaml:"namespaces,omitempty"`
 }
 
 // BackendConfig holds the configuration for a single backend instance as
@@ -109,9 +102,10 @@ type Loaded struct {
 	Namespaces []NamespaceEntry // merged dotfile + local overrides
 }
 
-// NamespaceEntry represents a namespace with its name (the map key).
+// NamespaceEntry represents one namespace entry, both in the on-disk sequence
+// format and in the merged runtime config.
 type NamespaceEntry struct {
-	Name    string
-	Backend string
-	Options map[string]string
+	Name    string            `yaml:"name"`
+	Backend string            `yaml:"backend"`
+	Options map[string]string `yaml:"options,omitempty"`
 }

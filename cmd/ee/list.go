@@ -8,11 +8,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"git.dries.info/gerco/envoke/internal/backend"
 	"git.dries.info/gerco/envoke/internal/config"
 )
 
 func init() {
 	rootCmd.AddCommand(listCmd)
+	listCmd.Flags().String("backend", "", "Backend to use (overrides namespace lookup)")
 }
 
 var listCmd = &cobra.Command{
@@ -27,11 +29,28 @@ local backend if the namespace is not declared in .envoke).
 Only key names are printed — never values.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		backendFlag, _ := cmd.Flags().GetString("backend")
+
+		if backendFlag != "" {
+			if len(args) == 0 {
+				return fmt.Errorf("namespace argument required when --backend is specified")
+			}
+			cfg, err := config.Load(projectDir)
+			if err != nil {
+				return fmt.Errorf("load config: %w", err)
+			}
+			_ = cfg // registers explicit backends from global config as a side effect
+			b, err := backend.DefaultRegistry.Resolve(backendFlag)
+			if err != nil {
+				return fmt.Errorf("backend %q: %w", backendFlag, err)
+			}
+			return listNamespace(b, args[0])
+		}
+
 		cfg, err := config.Load(projectDir)
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
 		}
-
 		if len(args) == 1 {
 			return listOne(cfg, args[0])
 		}
@@ -39,18 +58,21 @@ Only key names are printed — never values.`,
 	},
 }
 
-// listOne prints all keys in a single namespace, one per line.
+// listOne resolves the backend from cfg and delegates to listNamespace.
 func listOne(cfg *config.Loaded, namespaceName string) error {
 	b, err := openBackend(cfg, namespaceName)
 	if err != nil {
 		return fmt.Errorf("open backend for %q: %w", namespaceName, err)
 	}
+	return listNamespace(b, namespaceName)
+}
 
+// listNamespace prints all keys in namespaceName from b, one per line.
+func listNamespace(b backend.Backend, namespaceName string) error {
 	keys, err := b.List(namespaceName)
 	if err != nil {
 		return fmt.Errorf("list %q: %w", namespaceName, err)
 	}
-
 	sort.Strings(keys)
 	for _, k := range keys {
 		fmt.Println(k)
