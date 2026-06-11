@@ -106,6 +106,6 @@ type Loaded struct {
 // format and in the merged runtime config.
 type NamespaceEntry struct {
 	Name    string            `yaml:"name"`
-	Backend string            `yaml:"backend"`
+	Backend string            `yaml:"backend,omitempty"`
 	Options map[string]string `yaml:"options,omitempty"`
 }

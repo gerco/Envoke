@@ -51,6 +51,44 @@ func TestEnsureNamespace_EmptyFile(t *testing.T) {
 	}
 }
 
+func TestEnsureNamespace_KeychainOmitsBackend(t *testing.T) {
+	dir := t.TempDir()
+	f, err := os.Create(filepath.Join(dir, ".envoke"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	added, err := EnsureNamespace(dir, "test-ns", "keychain")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !added {
+		t.Fatal("expected added=true")
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".envoke"))
+	if err != nil {
+		t.Fatalf("unexpected read error: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "name: test-ns") {
+		t.Errorf("expected 'name: test-ns' in file, got:\n%s", content)
+	}
+	if strings.Contains(content, "backend:") {
+		t.Errorf("expected no 'backend:' line for keychain namespace, got:\n%s", content)
+	}
+
+	// Parsed backend should default to keychain.
+	df, err := loadDotfile(filepath.Join(dir, ".envoke"))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if df.Namespaces[0].Backend != "keychain" {
+		t.Errorf("expected backend=keychain after default, got %q", df.Namespaces[0].Backend)
+	}
+}
+
 func TestEnsureNamespace_Idempotent(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, ".envoke", `
