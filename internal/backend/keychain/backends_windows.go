@@ -9,3 +9,7 @@ func allowedBackends() []keyring.BackendType {
 }
 
 func serviceName() string { return "envoke" }
+
+// keyPrefix returns the prefix to add to keys on this platform.
+// On Windows, the ServiceName is already part of the key, so no additional prefix needed.
+func keyPrefix() string { return "" }

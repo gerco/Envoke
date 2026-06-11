@@ -9,3 +9,7 @@ func allowedBackends() []keyring.BackendType {
 }
 
 func serviceName() string { return "login" }
+
+// keyPrefix returns the prefix to add to keys on this platform.
+// On Linux, we use the "login" collection but prefix keys with "envoke/" for consistency.
+func keyPrefix() string { return "envoke/" }
