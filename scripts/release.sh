@@ -42,6 +42,8 @@ gh release create "${TAG}" \
 # ---------------------------------------------------------------------------
 # Homebrew formula
 # ---------------------------------------------------------------------------
+export VERSION BASE_URL
+export sha_darwin_amd64 sha_darwin_arm64 sha_linux_amd64 sha_linux_arm64
 sha_darwin_amd64=$(sha256sum "release/envoke_${VERSION}_darwin_amd64.tar.gz" | awk '{print $1}')
 sha_darwin_arm64=$(sha256sum "release/envoke_${VERSION}_darwin_arm64.tar.gz" | awk '{print $1}')
 sha_linux_amd64=$(sha256sum  "release/envoke_${VERSION}_linux_amd64.tar.gz"  | awk '{print $1}')
