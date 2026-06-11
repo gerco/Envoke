@@ -22,6 +22,7 @@ import (
 // backend chaining.
 type DotFile struct {
 	Namespaces []NamespaceEntry `yaml:"namespaces,omitempty"`
+	Verbose    bool             `yaml:"verbose,omitempty"`
 }
 
 // BackendConfig holds the configuration for a single backend instance as
@@ -85,6 +86,7 @@ type GlobalConfig struct {
 	Backends                 map[string]BackendConfig `yaml:"backends,omitempty"`
 	Defaults                 Defaults                 `yaml:"defaults,omitempty"`
 	DisabledImplicitBackends []string                 `yaml:"disabled_implicit_backends,omitempty"`
+	Verbose                  bool                     `yaml:"verbose,omitempty"`
 }
 
 // BackendByName returns the BackendConfig whose key matches name, or nil.
@@ -100,6 +102,7 @@ func (g *GlobalConfig) BackendByName(name string) *BackendConfig {
 type Loaded struct {
 	Global     GlobalConfig
 	Namespaces []NamespaceEntry // merged dotfile + local overrides
+	Verbose    bool             // true if either dotfile layer sets verbose: true
 }
 
 // NamespaceEntry represents one namespace entry, both in the on-disk sequence

@@ -13,6 +13,10 @@ import (
 	"git.dries.info/gerco/envoke/internal/config"
 )
 
+// Verbose enables verbose diagnostic output to stderr when set to true.
+// Set by the caller (e.g. from a --verbose flag or config file) before calling Run.
+var Verbose bool
+
 // Run executes args[0] with args[1:] as its arguments. Secrets from all
 // namespaces in cfg are fetched and injected on top of the current
 // environment. The subprocess inherits stdin, stdout, and stderr.
@@ -32,6 +36,10 @@ func Run(cfg *config.Loaded, args []string) (int, error) {
 	path, err := exec.LookPath(args[0])
 	if err != nil {
 		return 1, fmt.Errorf("command not found: %s", args[0])
+	}
+
+	if Verbose {
+		fmt.Fprintf(os.Stderr, "running: %s\n", strings.Join(args, " "))
 	}
 
 	cmd := exec.Command(path, args[1:]...)
@@ -60,6 +68,10 @@ func buildEnv(cfg *config.Loaded) ([]string, error) {
 
 	// Process namespaces sequentially, updating environment before each backend resolution
 	for _, ns := range cfg.Namespaces {
+		if Verbose {
+			fmt.Fprintf(os.Stderr, "namespace %q: backend %q\n", ns.Name, ns.Backend)
+		}
+
 		// Update process environment so backends can see accumulated secrets
 		// This enables credential chaining between namespaces
 		for k, v := range envMap {
@@ -75,6 +87,10 @@ func buildEnv(cfg *config.Loaded) ([]string, error) {
 		keys, err := b.List(ns.Name)
 		if err != nil {
 			return nil, fmt.Errorf("list namespace %q (backend %q): %w", ns.Name, ns.Backend, err)
+		}
+
+		if Verbose {
+			fmt.Fprintf(os.Stderr, "namespace %q: fetched %d key(s)\n", ns.Name, len(keys))
 		}
 
 		for _, key := range keys {

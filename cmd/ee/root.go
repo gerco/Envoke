@@ -42,6 +42,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
+		runner.Verbose = verbose || cfg.Verbose
 		code, err := runner.Run(cfg, args)
 		if err != nil {
 			return err
@@ -56,8 +57,12 @@ var rootCmd = &cobra.Command{
 // projectDir is resolved at command startup and used by all subcommands.
 var projectDir string
 
+// verbose enables verbose output when set via --verbose / -v.
+var verbose bool
+
 func init() {
 	cobra.OnInitialize(resolveProjectDir)
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
 }
 
 // resolveProjectDir walks up from the current working directory looking for a
