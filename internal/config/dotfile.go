@@ -68,13 +68,20 @@ func appendNamespace(path, namespaceName, backendName string) error {
 		}
 	}
 
+	var entry string
+	if backendName == "" || backendName == "keychain" {
+		entry = fmt.Sprintf("  - name: %s\n", namespaceName)
+	} else {
+		entry = fmt.Sprintf("  - name: %s\n    backend: %s\n", namespaceName, backendName)
+	}
+
 	var output string
 	if needsPrefix {
-		output = fmt.Sprintf("namespaces:\n  - name: %s\n    backend: %s\n", namespaceName, backendName)
+		output = "namespaces:\n" + entry
 	} else if needsNamespacesKey {
-		output = fmt.Sprintf("\nnamespaces:\n  - name: %s\n    backend: %s\n", namespaceName, backendName)
+		output = "\nnamespaces:\n" + entry
 	} else {
-		output = fmt.Sprintf("  - name: %s\n    backend: %s\n", namespaceName, backendName)
+		output = entry
 	}
 
 	_, err = f.WriteString(output)

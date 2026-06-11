@@ -122,7 +122,18 @@ func loadDotfile(path string) (DotFile, error) {
 		return DotFile{}, fmt.Errorf("%s: %w", path, err)
 	}
 	expandEnvInDotFile(&df)
+	applyDotfileDefaults(&df)
 	return df, nil
+}
+
+// applyDotfileDefaults fills in omitted fields with their default values.
+// Namespaces without an explicit backend default to "keychain".
+func applyDotfileDefaults(df *DotFile) {
+	for i := range df.Namespaces {
+		if df.Namespaces[i].Backend == "" {
+			df.Namespaces[i].Backend = "keychain"
+		}
+	}
 }
 
 // decodeFile parses a YAML file into v. If the file does not exist the call

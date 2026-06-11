@@ -339,6 +339,56 @@ func containsHelper(s, substr string) bool {
 	return false
 }
 
+func TestLoad_NoBackendDefaultsToKeychain(t *testing.T) {
+	dir := t.TempDir()
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  - name: ns1
+  - name: ns2
+`)
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Namespaces) != 2 {
+		t.Fatalf("expected 2 namespaces, got %d", len(cfg.Namespaces))
+	}
+	for _, ns := range cfg.Namespaces {
+		if ns.Backend != "keychain" {
+			t.Errorf("namespace %q: expected backend=keychain, got %q", ns.Name, ns.Backend)
+		}
+	}
+}
+
+func TestLoad_MixedBackends(t *testing.T) {
+	dir := t.TempDir()
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  - name: local-ns
+  - name: aws-ns
+    backend: aws
+  - name: another-local
+`)
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Namespaces) != 3 {
+		t.Fatalf("expected 3 namespaces, got %d", len(cfg.Namespaces))
+	}
+	if cfg.Namespaces[0].Backend != "keychain" {
+		t.Errorf("[0] expected keychain, got %q", cfg.Namespaces[0].Backend)
+	}
+	if cfg.Namespaces[1].Backend != "aws" {
+		t.Errorf("[1] expected aws, got %q", cfg.Namespaces[1].Backend)
+	}
+	if cfg.Namespaces[2].Backend != "keychain" {
+		t.Errorf("[2] expected keychain, got %q", cfg.Namespaces[2].Backend)
+	}
+}
+
 func TestEnvExpansion_InDotfile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("TEST_BACKEND", "keychain")
