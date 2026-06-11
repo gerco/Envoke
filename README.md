@@ -284,9 +284,18 @@ If the namespace is not yet in `.envoke`, it is added automatically.
 List secret keys. Values are never shown.
 
 ```bash
-ee list                 # all keys from all namespaces
-ee list db-dev          # keys from one namespace
+ee list                            # all keys from all namespaces in .envoke
+ee list db-dev                     # keys from one namespace (keychain if not in .envoke)
+ee list myns --backend aws-dev     # keys from myns using a specific backend
 ```
+
+With no argument, all namespaces declared in `.envoke` are listed. With a namespace argument, the backend is resolved from the dotfile; if the namespace is not declared, the OS keychain is used as the default.
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--backend <name>` | Use a specific backend, bypassing namespace lookup |
 
 ### `ee status`
 
