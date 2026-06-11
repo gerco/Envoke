@@ -146,34 +146,25 @@ func decodeFile(path string, v any) error {
 	return nil
 }
 
-// merge overlays local on top of base. Namespaces with the same name in local
-// replace those in base; namespaces only in local are appended.
+// merge overlays local on top of base, preserving insertion order.
+// Local entries with the same name replace the base entry in-place;
+// local-only entries are appended after all base entries.
 func merge(base, local DotFile) []NamespaceEntry {
-	// Collect all namespace names
-	namespaceMap := make(map[string]NamespaceEntry)
+	result := make([]NamespaceEntry, len(base.Namespaces))
+	copy(result, base.Namespaces)
 
-	// Add base namespaces first
-	for name, ns := range base.Namespaces {
-		namespaceMap[name] = NamespaceEntry{
-			Name:    name,
-			Backend: ns.Backend,
-			Options: ns.Options,
+	for _, localNS := range local.Namespaces {
+		replaced := false
+		for i, entry := range result {
+			if entry.Name == localNS.Name {
+				result[i] = localNS
+				replaced = true
+				break
+			}
 		}
-	}
-
-	// Overlay local namespaces (they take precedence)
-	for name, ns := range local.Namespaces {
-		namespaceMap[name] = NamespaceEntry{
-			Name:    name,
-			Backend: ns.Backend,
-			Options: ns.Options,
+		if !replaced {
+			result = append(result, localNS)
 		}
-	}
-
-	// Convert map to slice
-	result := make([]NamespaceEntry, 0, len(namespaceMap))
-	for _, entry := range namespaceMap {
-		result = append(result, entry)
 	}
 	return result
 }

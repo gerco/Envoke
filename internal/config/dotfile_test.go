@@ -22,8 +22,8 @@ func TestEnsureNamespace_CreatesFile(t *testing.T) {
 		t.Fatalf("expected .envoke to be created: %v", err)
 	}
 	content := string(data)
-	if !strings.Contains(content, "test-ns:") {
-		t.Errorf("expected namespace key in file, got:\n%s", content)
+	if !strings.Contains(content, "name: test-ns") {
+		t.Errorf("expected 'name: test-ns' in file, got:\n%s", content)
 	}
 	if !strings.Contains(content, "backend: local") {
 		t.Errorf("expected backend in file, got:\n%s", content)
@@ -52,8 +52,8 @@ func TestEnsureNamespace_Idempotent(t *testing.T) {
 	if len(df.Namespaces) != 1 {
 		t.Errorf("expected 1 namespace, got %d", len(df.Namespaces))
 	}
-	if _, exists := df.Namespaces["test-ns"]; !exists {
-		t.Errorf("expected test-ns namespace")
+	if df.Namespaces[0].Name != "test-ns" {
+		t.Errorf("expected test-ns namespace, got %q", df.Namespaces[0].Name)
 	}
 }
 
@@ -61,7 +61,7 @@ func TestEnsureNamespace_AppendsToExisting(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, ".envoke", `
 namespaces:
-  existing:
+  - name: existing
     backend: keeper
 `)
 
@@ -80,10 +80,14 @@ namespaces:
 	if len(df.Namespaces) != 2 {
 		t.Fatalf("expected 2 namespaces, got %d", len(df.Namespaces))
 	}
-	if _, exists := df.Namespaces["existing"]; !exists {
+	nsNames := map[string]bool{}
+	for _, ns := range df.Namespaces {
+		nsNames[ns.Name] = true
+	}
+	if !nsNames["existing"] {
 		t.Errorf("expected existing namespace to still be present")
 	}
-	if _, exists := df.Namespaces["new-ns"]; !exists {
+	if !nsNames["new-ns"] {
 		t.Errorf("expected new-ns namespace to be present")
 	}
 }

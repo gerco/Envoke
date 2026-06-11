@@ -51,9 +51,9 @@ func TestLoad_DotfileOnly(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, ".envoke", `
 namespaces:
-  aws-dev:
+  - name: aws-dev
     backend: keeper
-  db-local:
+  - name: db-local
     backend: keychain
 `)
 
@@ -65,17 +65,11 @@ namespaces:
 		t.Fatalf("expected 2 namespaces, got %d", len(cfg.Namespaces))
 	}
 
-	// Find namespaces in the result (order may vary since it's a map)
-	nsMap := make(map[string]string)
-	for _, ns := range cfg.Namespaces {
-		nsMap[ns.Name] = ns.Backend
+	if cfg.Namespaces[0].Name != "aws-dev" || cfg.Namespaces[0].Backend != "keeper" {
+		t.Errorf("expected [0]=aws-dev/keeper, got %+v", cfg.Namespaces[0])
 	}
-
-	if nsMap["aws-dev"] != "keeper" {
-		t.Errorf("expected aws-dev backend=keeper, got %q", nsMap["aws-dev"])
-	}
-	if nsMap["db-local"] != "keychain" {
-		t.Errorf("expected db-local backend=keychain, got %q", nsMap["db-local"])
+	if cfg.Namespaces[1].Name != "db-local" || cfg.Namespaces[1].Backend != "keychain" {
+		t.Errorf("expected [1]=db-local/keychain, got %+v", cfg.Namespaces[1])
 	}
 }
 
@@ -83,13 +77,13 @@ func TestLoad_LocalOverrideReplaces(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, ".envoke", `
 namespaces:
-  aws-dev:
+  - name: aws-dev
     backend: keeper
 `)
 	// Local overrides the same namespace with a different backend.
 	writeYAML(t, dir, ".envoke.local", `
 namespaces:
-  aws-dev:
+  - name: aws-dev
     backend: keychain
 `)
 
@@ -109,12 +103,12 @@ func TestLoad_LocalOverrideAppends(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, ".envoke", `
 namespaces:
-  aws-dev:
+  - name: aws-dev
     backend: keeper
 `)
 	writeYAML(t, dir, ".envoke.local", `
 namespaces:
-  db-personal:
+  - name: db-personal
     backend: keychain
 `)
 
@@ -126,21 +120,17 @@ namespaces:
 		t.Fatalf("expected 2 namespaces after append, got %d", len(cfg.Namespaces))
 	}
 
-	// Check that both namespaces are present
-	nsMap := make(map[string]bool)
-	for _, ns := range cfg.Namespaces {
-		nsMap[ns.Name] = true
+	// Base entry comes first; local-only entry is appended.
+	if cfg.Namespaces[0].Name != "aws-dev" {
+		t.Errorf("expected [0]=aws-dev, got %q", cfg.Namespaces[0].Name)
 	}
-	if !nsMap["aws-dev"] {
-		t.Errorf("expected aws-dev namespace to be present")
-	}
-	if !nsMap["db-personal"] {
-		t.Errorf("expected db-personal namespace to be present")
+	if cfg.Namespaces[1].Name != "db-personal" {
+		t.Errorf("expected [1]=db-personal, got %q", cfg.Namespaces[1].Name)
 	}
 }
 
 func TestMerge_EmptyLocal(t *testing.T) {
-	base := DotFile{Namespaces: map[string]Namespace{"a": {Backend: "x"}}}
+	base := DotFile{Namespaces: []NamespaceEntry{{Name: "a", Backend: "x"}}}
 	result := merge(base, DotFile{})
 	if len(result) != 1 || result[0].Name != "a" {
 		t.Errorf("unexpected merge result: %+v", result)
@@ -181,6 +171,78 @@ backends:
 	bc := cfg.Global.BackendByName("local")
 	if bc == nil || bc.Type != "keeper" {
 		t.Errorf("expected user-defined local=keeper to win, got %v", bc)
+	}
+}
+
+func TestLoad_OrderPreserved(t *testing.T) {
+	dir := t.TempDir()
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  - name: first
+    backend: keychain
+  - name: second
+    backend: keychain
+  - name: third
+    backend: keychain
+`)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"first", "second", "third"}
+	for i, w := range want {
+		if cfg.Namespaces[i].Name != w {
+			t.Errorf("position %d: got %q, want %q", i, cfg.Namespaces[i].Name, w)
+		}
+	}
+}
+
+func TestLoad_LegacyMapFormat(t *testing.T) {
+	dir := t.TempDir()
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  my-ns:
+    backend: keychain
+`)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("legacy map format should still parse, got error: %v", err)
+	}
+	if len(cfg.Namespaces) != 1 {
+		t.Fatalf("expected 1 namespace, got %d", len(cfg.Namespaces))
+	}
+	if cfg.Namespaces[0].Name != "my-ns" || cfg.Namespaces[0].Backend != "keychain" {
+		t.Errorf("unexpected namespace: %+v", cfg.Namespaces[0])
+	}
+}
+
+func TestLoad_LocalOverrideReplacesInPlace(t *testing.T) {
+	dir := t.TempDir()
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  - name: first
+    backend: keychain
+  - name: second
+    backend: keychain
+`)
+	// Local overrides "first" — it should stay at position 0, not move to the end.
+	writeYAML(t, dir, ".envoke.local", `
+namespaces:
+  - name: first
+    backend: aws
+`)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Namespaces) != 2 {
+		t.Fatalf("expected 2 namespaces, got %d", len(cfg.Namespaces))
+	}
+	if cfg.Namespaces[0].Name != "first" || cfg.Namespaces[0].Backend != "aws" {
+		t.Errorf("expected [0]=first/aws (in-place override), got %+v", cfg.Namespaces[0])
+	}
+	if cfg.Namespaces[1].Name != "second" {
+		t.Errorf("expected [1]=second, got %+v", cfg.Namespaces[1])
 	}
 }
 
@@ -301,7 +363,7 @@ func TestEnvExpansion_InDotfile(t *testing.T) {
 	t.Setenv("TEST_BACKEND", "keychain")
 	writeYAML(t, dir, ".envoke", `
 namespaces:
-  test-ns:
+  - name: test-ns
     backend: "${TEST_BACKEND}"
 `)
 

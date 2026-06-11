@@ -21,8 +21,10 @@ func EnsureNamespace(projectDir, namespaceName, backendName string) (bool, error
 		return false, fmt.Errorf("read dotfile: %w", err)
 	}
 
-	if _, exists := existing.Namespaces[namespaceName]; exists {
-		return false, nil
+	for _, ns := range existing.Namespaces {
+		if ns.Name == namespaceName {
+			return false, nil
+		}
 	}
 
 	if err := appendNamespace(path, namespaceName, backendName); err != nil {
@@ -64,14 +66,11 @@ func appendNamespace(path, namespaceName, backendName string) error {
 
 	var output string
 	if needsPrefix {
-		// File is empty, write the full structure
-		output = fmt.Sprintf("namespaces:\n  %s:\n    backend: %s\n", namespaceName, backendName)
+		output = fmt.Sprintf("namespaces:\n  - name: %s\n    backend: %s\n", namespaceName, backendName)
 	} else if needsNamespacesKey {
-		// File has content but no namespaces key yet
-		output = fmt.Sprintf("\nnamespaces:\n  %s:\n    backend: %s\n", namespaceName, backendName)
+		output = fmt.Sprintf("\nnamespaces:\n  - name: %s\n    backend: %s\n", namespaceName, backendName)
 	} else {
-		// File has namespaces key, append just the new entry
-		output = fmt.Sprintf("\n  %s:\n    backend: %s\n", namespaceName, backendName)
+		output = fmt.Sprintf("  - name: %s\n    backend: %s\n", namespaceName, backendName)
 	}
 
 	_, err = f.WriteString(output)

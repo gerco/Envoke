@@ -17,18 +17,47 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Namespace is one entry in the project dotfile.
-type Namespace struct {
-	// Backend is the name of the backend to use for this namespace.
-	Backend string `yaml:"backend"`
-	// Options are backend-specific key/value pairs that can override the
-	// global backend config for this namespace (e.g. a different vault path).
-	Options map[string]string `yaml:"options,omitempty"`
+// DotFile is the parsed representation of .envoke / .envoke.local.
+// The canonical on-disk format is a YAML sequence under "namespaces:" so that
+// insertion order is preserved for backend-chaining. The old map format is
+// still accepted for backward compatibility (order is then undefined).
+type DotFile struct {
+	Namespaces []NamespaceEntry `yaml:"namespaces,omitempty"`
 }
 
-// DotFile is the parsed representation of .envoke / .envoke.local.
-type DotFile struct {
-	Namespaces map[string]Namespace `yaml:"namespaces,omitempty"`
+// UnmarshalYAML handles both the canonical sequence format and the legacy map
+// format so that existing dotfiles continue to work after the format change.
+func (df *DotFile) UnmarshalYAML(value *yaml.Node) error {
+	var wrapper struct {
+		Namespaces yaml.Node `yaml:"namespaces"`
+	}
+	if err := value.Decode(&wrapper); err != nil {
+		return err
+	}
+	if wrapper.Namespaces.Kind == 0 {
+		return nil
+	}
+	switch wrapper.Namespaces.Kind {
+	case yaml.SequenceNode:
+		return wrapper.Namespaces.Decode(&df.Namespaces)
+	case yaml.MappingNode:
+		// Legacy map format: name is the map key.
+		var m map[string]struct {
+			Backend string            `yaml:"backend"`
+			Options map[string]string `yaml:"options,omitempty"`
+		}
+		if err := wrapper.Namespaces.Decode(&m); err != nil {
+			return err
+		}
+		for name, ns := range m {
+			df.Namespaces = append(df.Namespaces, NamespaceEntry{
+				Name:    name,
+				Backend: ns.Backend,
+				Options: ns.Options,
+			})
+		}
+	}
+	return nil
 }
 
 // BackendConfig holds the configuration for a single backend instance as
@@ -109,9 +138,10 @@ type Loaded struct {
 	Namespaces []NamespaceEntry // merged dotfile + local overrides
 }
 
-// NamespaceEntry represents a namespace with its name (the map key).
+// NamespaceEntry represents one namespace entry, both in the on-disk sequence
+// format and in the merged runtime config.
 type NamespaceEntry struct {
-	Name    string
-	Backend string
-	Options map[string]string
+	Name    string            `yaml:"name"`
+	Backend string            `yaml:"backend"`
+	Options map[string]string `yaml:"options,omitempty"`
 }

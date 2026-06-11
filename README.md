@@ -128,30 +128,32 @@ Committed to git. Describes which namespaces this project needs and which backen
 
 ```yaml
 namespaces:
-  db-dev:
+  - name: db-dev
     backend: aws-dev
-  local-creds:
+  - name: local-creds
     backend: keychain
-  stripe:
+  - name: stripe
     backend: aws-dev
 ```
+
+Namespaces are processed in order — earlier entries run first. This matters for backend chaining: if one namespace injects credentials that a later backend needs (e.g. AWS credentials fetched from the keychain before querying AWS Secrets Manager), declare the credential-provider namespace first.
 
 Each namespace entry has:
 
 | Field | Description |
 |-------|-------------|
-| map key | The namespace identifier (e.g. `db-dev`) — also the secret group name in the backend |
+| `name` | The namespace identifier (e.g. `db-dev`) — also the secret group name in the backend |
 | `backend` | Must match a backend name in the global config or be an implicit backend |
 | `options` | Optional map: override backend options for this namespace only |
 
 ### Local overrides (`.envoke.local`)
 
-Same format as `.envoke`. Namespaces with the same name replace those from `.envoke`; new namespaces are appended. Add `.envoke.local` to `.gitignore`.
+Same format as `.envoke`. A namespace with the same `name` replaces the base entry **in its original position** (chaining order is preserved); new namespaces are appended. Add `.envoke.local` to `.gitignore`.
 
 ```yaml
 # Override the db-dev namespace to use a local keychain instead of AWS
 namespaces:
-  db-dev:
+  - name: db-dev
     backend: keychain
 ```
 
