@@ -11,16 +11,8 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "ee [-- <command> [args...]]",
+	// Use and Long are set in main() using the actual binary name from os.Args[0].
 	Short: "Inject secrets per-command from pluggable backends",
-	Long: `Envoke (ee) reads a project .envoke file, fetches the required secrets
-from one or more configured backends, and spawns your command as a subprocess
-with those secrets in its environment. Nothing persists. Nothing leaks.
-
-Examples:
-  ee -- make dev
-  ee -- psql -h $DB_HOST -U $DB_USER
-  ee -- aider --model claude-sonnet-4-6`,
 	// Allow arbitrary args so that "ee -- <command>" reaches RunE.
 	Args:          cobra.ArbitraryArgs,
 	SilenceUsage:  true,
