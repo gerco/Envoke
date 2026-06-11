@@ -197,24 +197,6 @@ namespaces:
 	}
 }
 
-func TestLoad_LegacyMapFormat(t *testing.T) {
-	dir := t.TempDir()
-	writeYAML(t, dir, ".envoke", `
-namespaces:
-  my-ns:
-    backend: keychain
-`)
-	cfg, err := Load(dir)
-	if err != nil {
-		t.Fatalf("legacy map format should still parse, got error: %v", err)
-	}
-	if len(cfg.Namespaces) != 1 {
-		t.Fatalf("expected 1 namespace, got %d", len(cfg.Namespaces))
-	}
-	if cfg.Namespaces[0].Name != "my-ns" || cfg.Namespaces[0].Backend != "keychain" {
-		t.Errorf("unexpected namespace: %+v", cfg.Namespaces[0])
-	}
-}
 
 func TestLoad_LocalOverrideReplacesInPlace(t *testing.T) {
 	dir := t.TempDir()

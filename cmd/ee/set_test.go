@@ -54,7 +54,7 @@ func TestSetCmd_WritesToBackendWithInlineValue(t *testing.T) {
 	registerTestBackend(backendKey, fake)
 
 	// Write a .envoke that maps the namespace to our fake backend.
-	envoke := fmt.Sprintf("namespaces:\n  myns:\n    backend: %s\n", backendKey)
+	envoke := fmt.Sprintf("namespaces:\n  - name: myns\n    backend: %s\n", backendKey)
 	if err := os.WriteFile(filepath.Join(dir, ".envoke"), []byte(envoke), 0644); err != nil {
 		t.Fatal(err)
 	}
