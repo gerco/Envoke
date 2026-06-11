@@ -13,27 +13,23 @@ jobs:
     if: github.server_url == 'https://github.com'
     runs-on: macos-15-intel
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
-      - name: Build darwin/amd64 binary
+      - name: Build
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          mkdir -p dist/envoke_darwin_amd64_v1
+          mkdir -p dist/darwin_amd64
           CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
-            go build -tags aws \
-            -ldflags "-s -w -X main.version=${VERSION}" \
-            -o dist/envoke_darwin_amd64_v1/envoke ./cmd/ee
+            go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" \
+            -o dist/darwin_amd64/envoke ./cmd/ee
 
-      - name: Upload darwin/amd64 binary
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: dist-darwin-amd64
           path: dist/
@@ -43,27 +39,23 @@ jobs:
     if: github.server_url == 'https://github.com'
     runs-on: macos-15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
-      - name: Build darwin/arm64 binary
+      - name: Build
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          mkdir -p dist/envoke_darwin_arm64
+          mkdir -p dist/darwin_arm64
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-            go build -tags aws \
-            -ldflags "-s -w -X main.version=${VERSION}" \
-            -o dist/envoke_darwin_arm64/envoke ./cmd/ee
+            go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" \
+            -o dist/darwin_arm64/envoke ./cmd/ee
 
-      - name: Upload darwin/arm64 binary
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: dist-darwin-arm64
           path: dist/
@@ -73,44 +65,24 @@ jobs:
     if: github.server_url == 'https://github.com'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
-      - name: Build linux and windows binaries
+      - name: Build
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          mkdir -p dist/envoke_linux_amd64_v1 dist/envoke_linux_arm64 \
-                   dist/envoke_windows_amd64_v1 dist/envoke_windows_arm64
+          mkdir -p dist/linux_amd64 dist/linux_arm64 dist/windows_amd64 dist/windows_arm64
+          CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" -o dist/linux_amd64/envoke       ./cmd/ee
+          CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" -o dist/linux_arm64/envoke       ./cmd/ee
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" -o dist/windows_amd64/envoke.exe ./cmd/ee
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" -o dist/windows_arm64/envoke.exe ./cmd/ee
 
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-            go build -tags aws \
-            -ldflags "-s -w -X main.version=${VERSION}" \
-            -o dist/envoke_linux_amd64_v1/envoke ./cmd/ee
-
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
-            go build -tags aws \
-            -ldflags "-s -w -X main.version=${VERSION}" \
-            -o dist/envoke_linux_arm64/envoke ./cmd/ee
-
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-            go build -tags aws \
-            -ldflags "-s -w -X main.version=${VERSION}" \
-            -o dist/envoke_windows_amd64_v1/envoke.exe ./cmd/ee
-
-          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 \
-            go build -tags aws \
-            -ldflags "-s -w -X main.version=${VERSION}" \
-            -o dist/envoke_windows_arm64/envoke.exe ./cmd/ee
-
-      - name: Upload linux/windows binaries
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: dist-linux-windows
           path: dist/
@@ -120,15 +92,9 @@ jobs:
     needs: [build-darwin-amd64, build-darwin-arm64, build-linux-windows]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
 
       - name: Download all dist artifacts
         uses: actions/download-artifact@v4
@@ -136,11 +102,8 @@ jobs:
           path: dist/
           merge-multiple: true
 
-      - name: Release with GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          # No --clean: pre-built binaries are already in dist/
-          args: release
+      - name: Release
+        run: bash scripts/release.sh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
