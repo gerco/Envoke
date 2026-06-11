@@ -39,50 +39,61 @@ func init() {
 	})
 }
 
-// keychainBackend stores a keyring.Keyring opened per namespace on first use.
+// keychainBackend stores a single keyring.Keyring shared across all namespaces.
+// Namespace separation is achieved by prefixing keys with "namespace/".
 type keychainBackend struct {
-	rings map[string]keyring.Keyring
+	ring keyring.Keyring
 }
 
 // New creates a keychain backend. opts is unused for now but reserved for
 // future options (e.g. custom service name prefix).
 func New(_ map[string]string) (*keychainBackend, error) {
-	return &keychainBackend{rings: make(map[string]keyring.Keyring)}, nil
+	r, err := keyring.Open(keyring.Config{
+		ServiceName:              "login",
+		AllowedBackends:          allowedBackends(),
+		KeychainTrustApplication: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("open keychain: %w", err)
+	}
+	return &keychainBackend{ring: r}, nil
 }
 
 // NewDefaultBackend creates a keychain backend with zero configuration.
 // On macOS and Windows, this is always available.
 // On Linux, availability depends on Secret Service (checked when first used).
 func NewDefaultBackend() (backend.Backend, error) {
-	// Always return the backend - actual availability is determined when used.
-	// This avoids slow checks during status/commands.
-	return &keychainBackend{rings: make(map[string]keyring.Keyring)}, nil
+	// Defer keyring opening until first use to avoid slow checks during status/commands.
+	return &keychainBackend{ring: nil}, nil
 }
 
-func (k *keychainBackend) ring(namespace string) (keyring.Keyring, error) {
-	if r, ok := k.rings[namespace]; ok {
-		return r, nil
+// ensureRing lazily initializes the keyring on first use.
+// This is needed for NewDefaultBackend which defers opening the keyring.
+func (k *keychainBackend) ensureRing() error {
+	if k.ring != nil {
+		return nil
 	}
 	r, err := keyring.Open(keyring.Config{
-		ServiceName:              "envoke/" + namespace,
+		ServiceName:              "login",
 		AllowedBackends:          allowedBackends(),
 		KeychainTrustApplication: true,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("open keychain namespace %q: %w", namespace, err)
+		return fmt.Errorf("open keychain: %w", err)
 	}
-	k.rings[namespace] = r
-	return r, nil
+	k.ring = r
+	return nil
 }
 
 // Get retrieves a single key's value. Values are stored as JSON-encoded
 // strings to allow future structured payloads without format changes.
 func (k *keychainBackend) Get(namespace, key string) (string, error) {
-	r, err := k.ring(namespace)
-	if err != nil {
+	if err := k.ensureRing(); err != nil {
 		return "", err
 	}
-	item, err := r.Get(key)
+	// Use "namespace/key" as the actual keyring key
+	keychainKey := namespace + "/" + key
+	item, err := k.ring.Get(keychainKey)
 	if err != nil {
 		if errors.Is(err, keyring.ErrKeyNotFound) {
 			return "", fmt.Errorf("%w: %s/%s", backend.ErrNotFound, namespace, key)
@@ -99,16 +110,17 @@ func (k *keychainBackend) Get(namespace, key string) (string, error) {
 
 // Set stores key=value in the OS keychain under namespace.
 func (k *keychainBackend) Set(namespace, key, value string) error {
-	r, err := k.ring(namespace)
-	if err != nil {
+	if err := k.ensureRing(); err != nil {
 		return err
 	}
 	data, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("keychain marshal %s/%s: %w", namespace, key, err)
 	}
-	if err := r.Set(keyring.Item{
-		Key:         key,
+	// Use "namespace/key" as the actual keyring key
+	keychainKey := namespace + "/" + key
+	if err := k.ring.Set(keyring.Item{
+		Key:         keychainKey,
 		Data:        data,
 		Label:       fmt.Sprintf("envoke/%s/%s", namespace, key),
 		Description: "envoke secret",
@@ -120,13 +132,21 @@ func (k *keychainBackend) Set(namespace, key, value string) error {
 
 // List returns all keys stored in a namespace.
 func (k *keychainBackend) List(namespace string) ([]string, error) {
-	r, err := k.ring(namespace)
-	if err != nil {
+	if err := k.ensureRing(); err != nil {
 		return nil, err
 	}
-	keys, err := r.Keys()
+	allKeys, err := k.ring.Keys()
 	if err != nil {
 		return nil, fmt.Errorf("keychain list %s: %w", namespace, err)
+	}
+	// Filter keys that belong to this namespace
+	prefix := namespace + "/"
+	var keys []string
+	for _, key := range allKeys {
+		if len(key) > len(prefix) && key[:len(prefix)] == prefix {
+			// Strip the namespace prefix to return just the key name
+			keys = append(keys, key[len(prefix):])
+		}
 	}
 	return keys, nil
 }

@@ -50,14 +50,10 @@ func (f *fakeRing) Keys() ([]string, error) {
 	return keys, nil
 }
 
-// newTestBackend creates a keychainBackend with ring pre-seeded for namespace,
+// newTestBackend creates a keychainBackend with a single ring,
 // bypassing keyring.Open so tests never touch the OS keychain.
-func newTestBackend(namespace string, r keyring.Keyring) *keychainBackend {
-	b := &keychainBackend{rings: make(map[string]keyring.Keyring)}
-	if r != nil {
-		b.rings[namespace] = r
-	}
-	return b
+func newTestBackend(r keyring.Keyring) *keychainBackend {
+	return &keychainBackend{ring: r}
 }
 
 // --- Get ---
@@ -65,8 +61,9 @@ func newTestBackend(namespace string, r keyring.Keyring) *keychainBackend {
 func TestGet_ReturnsDecodedValue(t *testing.T) {
 	r := newFakeRing()
 	data, _ := json.Marshal("hello")
-	r.items["KEY"] = keyring.Item{Key: "KEY", Data: data}
-	b := newTestBackend("ns", r)
+	// Key is now stored as "namespace/key"
+	r.items["ns/KEY"] = keyring.Item{Key: "ns/KEY", Data: data}
+	b := newTestBackend(r)
 
 	got, err := b.Get("ns", "KEY")
 	if err != nil {
@@ -78,7 +75,7 @@ func TestGet_ReturnsDecodedValue(t *testing.T) {
 }
 
 func TestGet_MissingKey_ReturnsErrNotFound(t *testing.T) {
-	b := newTestBackend("ns", newFakeRing())
+	b := newTestBackend(newFakeRing())
 
 	_, err := b.Get("ns", "MISSING")
 	if !errors.Is(err, backend.ErrNotFound) {
@@ -89,8 +86,9 @@ func TestGet_MissingKey_ReturnsErrNotFound(t *testing.T) {
 func TestGet_RawBytesFallback(t *testing.T) {
 	// Data that is not a valid JSON string falls back to raw bytes.
 	r := newFakeRing()
-	r.items["RAW"] = keyring.Item{Key: "RAW", Data: []byte("not-json")}
-	b := newTestBackend("ns", r)
+	// Key is now stored as "namespace/key"
+	r.items["ns/RAW"] = keyring.Item{Key: "ns/RAW", Data: []byte("not-json")}
+	b := newTestBackend(r)
 
 	got, err := b.Get("ns", "RAW")
 	if err != nil {
@@ -105,7 +103,7 @@ func TestGet_RawBytesFallback(t *testing.T) {
 
 func TestSet_RoundTrip(t *testing.T) {
 	r := newFakeRing()
-	b := newTestBackend("ns", r)
+	b := newTestBackend(r)
 
 	if err := b.Set("ns", "KEY", "world"); err != nil {
 		t.Fatalf("Set: %v", err)
@@ -121,13 +119,14 @@ func TestSet_RoundTrip(t *testing.T) {
 
 func TestSet_LabelAndDescription(t *testing.T) {
 	r := newFakeRing()
-	b := newTestBackend("myns", r)
+	b := newTestBackend(r)
 
 	if err := b.Set("myns", "MY_KEY", "val"); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 
-	item := r.items["MY_KEY"]
+	// Key is now stored as "namespace/key"
+	item := r.items["myns/MY_KEY"]
 	if want := "envoke/myns/MY_KEY"; item.Label != want {
 		t.Errorf("label = %q, want %q", item.Label, want)
 	}
@@ -138,7 +137,7 @@ func TestSet_LabelAndDescription(t *testing.T) {
 
 func TestSet_OverwritesExistingKey(t *testing.T) {
 	r := newFakeRing()
-	b := newTestBackend("ns", r)
+	b := newTestBackend(r)
 
 	_ = b.Set("ns", "KEY", "first")
 	_ = b.Set("ns", "KEY", "second")
@@ -156,10 +155,11 @@ func TestSet_OverwritesExistingKey(t *testing.T) {
 
 func TestList_ReturnsAllKeys(t *testing.T) {
 	r := newFakeRing()
-	r.items["A"] = keyring.Item{Key: "A"}
-	r.items["B"] = keyring.Item{Key: "B"}
-	r.items["C"] = keyring.Item{Key: "C"}
-	b := newTestBackend("ns", r)
+	// Keys are now stored as "namespace/key"
+	r.items["ns/A"] = keyring.Item{Key: "ns/A"}
+	r.items["ns/B"] = keyring.Item{Key: "ns/B"}
+	r.items["ns/C"] = keyring.Item{Key: "ns/C"}
+	b := newTestBackend(r)
 
 	keys, err := b.List("ns")
 	if err != nil {
@@ -178,7 +178,7 @@ func TestList_ReturnsAllKeys(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	b := newTestBackend("ns", newFakeRing())
+	b := newTestBackend(newFakeRing())
 
 	keys, err := b.List("ns")
 	if err != nil {
@@ -189,21 +189,46 @@ func TestList_Empty(t *testing.T) {
 	}
 }
 
-// --- ring caching ---
+// --- namespace isolation ---
 
-func TestRing_Caches(t *testing.T) {
+func TestList_NamespaceIsolation(t *testing.T) {
 	r := newFakeRing()
-	b := newTestBackend("ns", r)
+	// Keys from different namespaces in the same keyring
+	r.items["ns1/A"] = keyring.Item{Key: "ns1/A"}
+	r.items["ns1/B"] = keyring.Item{Key: "ns1/B"}
+	r.items["ns2/C"] = keyring.Item{Key: "ns2/C"}
+	r.items["ns2/D"] = keyring.Item{Key: "ns2/D"}
+	b := newTestBackend(r)
 
-	r1, err := b.ring("ns")
+	// List ns1 should only return keys from ns1
+	keys1, err := b.List("ns1")
 	if err != nil {
-		t.Fatalf("first ring(): %v", err)
+		t.Fatalf("List ns1: %v", err)
 	}
-	r2, err := b.ring("ns")
+	sort.Strings(keys1)
+	want1 := []string{"A", "B"}
+	if len(keys1) != len(want1) {
+		t.Fatalf("ns1: got %v, want %v", keys1, want1)
+	}
+	for i := range want1 {
+		if keys1[i] != want1[i] {
+			t.Errorf("ns1[%d] = %q, want %q", i, keys1[i], want1[i])
+		}
+	}
+
+	// List ns2 should only return keys from ns2
+	keys2, err := b.List("ns2")
 	if err != nil {
-		t.Fatalf("second ring(): %v", err)
+		t.Fatalf("List ns2: %v", err)
 	}
-	if r1 != r2 {
-		t.Error("ring() returned different instances: not cached")
+	sort.Strings(keys2)
+	want2 := []string{"C", "D"}
+	if len(keys2) != len(want2) {
+		t.Fatalf("ns2: got %v, want %v", keys2, want2)
+	}
+	for i := range want2 {
+		if keys2[i] != want2[i] {
+			t.Errorf("ns2[%d] = %q, want %q", i, keys2[i], want2[i])
+		}
 	}
 }
