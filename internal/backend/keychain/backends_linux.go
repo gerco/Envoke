@@ -7,3 +7,5 @@ import "github.com/99designs/keyring"
 func allowedBackends() []keyring.BackendType {
 	return []keyring.BackendType{keyring.SecretServiceBackend, keyring.KWalletBackend}
 }
+
+func serviceName() string { return "login" }

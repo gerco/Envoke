@@ -48,11 +48,7 @@ type keychainBackend struct {
 // New creates a keychain backend. opts is unused for now but reserved for
 // future options (e.g. custom service name prefix).
 func New(_ map[string]string) (*keychainBackend, error) {
-	r, err := keyring.Open(keyring.Config{
-		ServiceName:              "login",
-		AllowedBackends:          allowedBackends(),
-		KeychainTrustApplication: true,
-	})
+	r, err := openKeyRing()
 	if err != nil {
 		return nil, fmt.Errorf("open keychain: %w", err)
 	}
@@ -73,16 +69,20 @@ func (k *keychainBackend) ensureRing() error {
 	if k.ring != nil {
 		return nil
 	}
-	r, err := keyring.Open(keyring.Config{
-		ServiceName:              "login",
-		AllowedBackends:          allowedBackends(),
-		KeychainTrustApplication: true,
-	})
+	r, err := openKeyRing()
 	if err != nil {
 		return fmt.Errorf("open keychain: %w", err)
 	}
 	k.ring = r
 	return nil
+}
+
+func openKeyRing() (keyring.Keyring, error) {
+	return keyring.Open(keyring.Config{
+		ServiceName:              serviceName(),
+		AllowedBackends:          allowedBackends(),
+		KeychainTrustApplication: true,
+	})
 }
 
 // Get retrieves a single key's value. Values are stored as JSON-encoded
