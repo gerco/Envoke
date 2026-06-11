@@ -57,7 +57,10 @@ func (e *errBackend) List(_ string) ([]string, error) { return nil, e.err }
 // The registration persists for the lifetime of the test process, so callers
 // must use unique names to avoid cross-test interference.
 func registerTestBackend(name string, b backend.Backend) {
-	backend.DefaultRegistry.RegisterExplicit(name, b)
+	backend.Register(name, func(_ map[string]string, _ bool) (backend.Backend, error) {
+		return b, nil
+	})
+	backend.DefaultRegistry.RegisterExplicitConfig(name, name, nil)
 }
 
 // loadedConfig returns a minimal *config.Loaded with one namespace entry.

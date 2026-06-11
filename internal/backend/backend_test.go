@@ -13,7 +13,7 @@ func (f *fakeBackend) Set(_, _, _ string) error        { return nil }
 func (f *fakeBackend) List(_ string) ([]string, error) { return []string{"k"}, nil }
 
 func TestRegisterAndNew(t *testing.T) {
-	backend.Register("fake", func(_ map[string]string) (backend.Backend, error) {
+	backend.Register("fake", func(_ map[string]string, _ bool) (backend.Backend, error) {
 		return &fakeBackend{}, nil
 	})
 

@@ -33,24 +33,16 @@ func parseConfig(opts map[string]string) (*opConfig, error) {
 }
 
 func init() {
-	// Register as explicit factory (with token from config options)
-	backend.Register(backendName, func(opts map[string]string) (backend.Backend, error) {
+	backend.Register(backendName, func(opts map[string]string, isDefault bool) (backend.Backend, error) {
+		if isDefault {
+			return NewDefaultBackend()
+		}
 		cfg, err := parseConfig(opts)
 		if err != nil {
 			return nil, err
 		}
 		return New(cfg.Token)
 	})
-	// Register as default (zero-config) factory using OP_SERVICE_ACCOUNT_TOKEN env var
-	backend.DefaultRegistry.RegisterDefault(backendName, NewDefaultBackend, check1PasswordAvailable)
-}
-
-// check1PasswordAvailable does a fast check for 1Password env var.
-func check1PasswordAvailable() (bool, string) {
-	if os.Getenv("OP_SERVICE_ACCOUNT_TOKEN") != "" {
-		return true, ""
-	}
-	return false, "OP_SERVICE_ACCOUNT_TOKEN"
 }
 
 // opBackend implements the envoke backend interface for 1Password.
