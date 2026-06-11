@@ -21,10 +21,27 @@ var rootCmd = &cobra.Command{
 		if len(args) == 0 {
 			return cmd.Help()
 		}
-		cfg, err := config.Load(projectDir)
+
+		ns, cmdArgs, err := keychainNamespace(os.Args[1:], args)
 		if err != nil {
-			return fmt.Errorf("load config: %w", err)
+			return err
 		}
+
+		var cfg *config.Loaded
+		if ns != "" {
+			cfg = &config.Loaded{
+				Namespaces: []config.NamespaceEntry{
+					{Name: ns, Backend: "keychain"},
+				},
+			}
+			args = cmdArgs
+		} else {
+			cfg, err = config.Load(projectDir)
+			if err != nil {
+				return fmt.Errorf("load config: %w", err)
+			}
+		}
+
 		code, err := runner.Run(cfg, args)
 		if err != nil {
 			return err
@@ -72,6 +89,41 @@ func findProjectRoot() (string, error) {
 			return cwd, nil
 		}
 		dir = parent
+	}
+}
+
+// keychainNamespace inspects the raw os args (everything after the binary name)
+// to detect the pattern "ee <namespace> -- <command>". It returns the namespace
+// and the cobra args shifted past it. If no -- separator is present, or nothing
+// appears before it, it returns ("", cobraArgs, nil) so the caller falls through
+// to dotfile-based config. Multiple positional args before -- are an error.
+func keychainNamespace(rawArgs []string, cobraArgs []string) (string, []string, error) {
+	dashIdx := -1
+	for i, a := range rawArgs {
+		if a == "--" {
+			dashIdx = i
+			break
+		}
+	}
+	if dashIdx < 0 {
+		return "", cobraArgs, nil
+	}
+
+	var positional []string
+	for _, a := range rawArgs[:dashIdx] {
+		if a != "" && a[0] != '-' {
+			positional = append(positional, a)
+		}
+	}
+
+	switch len(positional) {
+	case 0:
+		return "", cobraArgs, nil
+	case 1:
+		// cobra strips --, so cobraArgs starts with the namespace followed by the command.
+		return positional[0], cobraArgs[1:], nil
+	default:
+		return "", nil, fmt.Errorf("expected exactly one namespace before --, got: %v", positional)
 	}
 }
 

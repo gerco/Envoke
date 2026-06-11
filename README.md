@@ -6,6 +6,7 @@ Inject secrets per-command from pluggable backends. Nothing persists. Nothing le
 $ ee -- make dev
 $ ee -- psql -h $DB_HOST -U $DB_USER
 $ ee -- aider --model claude-sonnet-4-6
+$ ee myns -- printenv          # envchain-style: inject one keychain namespace
 ```
 
 Envoke reads a project dotfile (`.envoke`), fetches the required secrets from one or more configured backends, and spawns your command as a subprocess with those secrets in its environment. The subprocess exits; the secrets vanish.
@@ -243,6 +244,18 @@ ee -- aider --model claude-sonnet-4-6
 ```
 
 The current environment is preserved as a base layer. Secrets are layered on top, overriding any matching variable names. The exit code of the subprocess is passed through.
+
+### `ee <namespace> -- <command> [args...]`
+
+Inject secrets from a single OS keychain namespace without a `.envoke` file. This is a drop-in replacement for `envchain`:
+
+```bash
+ee db-local -- psql -h $DB_HOST -U $DB_USER mydb
+ee aws-dev -- aws s3 ls
+ee stripe -- node scripts/charge.js
+```
+
+The named namespace is looked up in the OS keychain backend (Keychain on macOS, Credential Manager on Windows, Secret Service on Linux). No global config or dotfile is required — useful for one-off commands and personal machines.
 
 ### `ee set <namespace> <key> [value]`
 
