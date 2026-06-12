@@ -210,15 +210,15 @@ func TestList_MissingSecret_ReturnsError(t *testing.T) {
 
 func TestGet_NonStringValue_ConvertedToString(t *testing.T) {
 	cases := []struct {
-		name  string
-		json  string
-		key   string
-		want  string
+		name string
+		json string
+		key  string
+		want string
 	}{
 		{"integer", `{"PORT": 5672}`, "PORT", "5672"},
-		{"float",   `{"RATIO": 1.5}`, "RATIO", "1.5"},
-		{"bool",    `{"TLS": true}`,  "TLS",  "true"},
-		{"null",    `{"X": null}`,    "X",    ""},
+		{"float", `{"RATIO": 1.5}`, "RATIO", "1.5"},
+		{"bool", `{"TLS": true}`, "TLS", "true"},
+		{"null", `{"X": null}`, "X", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
