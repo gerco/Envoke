@@ -111,6 +111,26 @@ func (a *awsBackend) secretName(namespace string) string {
 	return a.prefix + namespace
 }
 
+// parseSecretJSON decodes a Secrets Manager JSON value into a string map.
+// String values are unquoted; numbers, booleans, and null are kept as their
+// JSON text representation so non-envoke secrets with mixed types work too.
+func parseSecretJSON(raw string) (map[string]string, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(raw), &fields); err != nil {
+		return nil, err
+	}
+	result := make(map[string]string, len(fields))
+	for k, v := range fields {
+		var s string
+		if err := json.Unmarshal(v, &s); err == nil {
+			result[k] = s
+		} else {
+			result[k] = string(v)
+		}
+	}
+	return result, nil
+}
+
 // Get retrieves a key from the namespace secret.
 // namespace -> AWS secret name, key -> JSON field name.
 func (a *awsBackend) Get(namespace, key string) (string, error) {
@@ -129,14 +149,12 @@ func (a *awsBackend) Get(namespace, key string) (string, error) {
 	}
 
 	// Parse JSON secret value
-	var data map[string]string
-	if result.SecretString != nil {
-		if err := json.Unmarshal([]byte(*result.SecretString), &data); err != nil {
-			return "", fmt.Errorf("aws secret %s: invalid JSON: %w", secretName, err)
-		}
-	} else {
-		// Binary secret - not supported
+	if result.SecretString == nil {
 		return "", fmt.Errorf("aws secret %s: binary secrets not supported", secretName)
+	}
+	data, err := parseSecretJSON(*result.SecretString)
+	if err != nil {
+		return "", fmt.Errorf("aws secret %s: invalid JSON: %w", secretName, err)
 	}
 
 	value, ok := data[key]
@@ -212,7 +230,7 @@ func (a *awsBackend) List(namespace string) ([]string, error) {
 	if err != nil {
 		var notFound *types.ResourceNotFoundException
 		if isErrorType(err, notFound) {
-			return []string{}, nil // Empty list for non-existent secret
+			return nil, fmt.Errorf("aws secret %q not found (namespace %q does not exist)", secretName, namespace)
 		}
 		return nil, fmt.Errorf("aws get secret %s: %w", secretName, err)
 	}
@@ -220,9 +238,10 @@ func (a *awsBackend) List(namespace string) ([]string, error) {
 	// Parse JSON
 	var data map[string]string
 	if result.SecretString != nil {
-		if err := json.Unmarshal([]byte(*result.SecretString), &data); err != nil {
-			// Invalid JSON - return empty list
-			return []string{}, nil
+		var err error
+		data, err = parseSecretJSON(*result.SecretString)
+		if err != nil {
+			return nil, fmt.Errorf("aws secret %s: invalid JSON: %w", secretName, err)
 		}
 	}
 

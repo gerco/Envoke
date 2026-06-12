@@ -69,6 +69,7 @@ func Load(projectDir string) (*Loaded, error) {
 	return &Loaded{
 		Global:     global,
 		Namespaces: merge(base, local),
+		Verbose:    global.Verbose || base.Verbose || local.Verbose,
 	}, nil
 }
 

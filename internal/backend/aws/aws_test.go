@@ -196,16 +196,57 @@ func TestList_ReturnsKeys(t *testing.T) {
 	}
 }
 
-func TestList_MissingSecret_ReturnsEmptySlice(t *testing.T) {
+func TestList_MissingSecret_ReturnsError(t *testing.T) {
 	fake := newFake(nil)
 	b := newBackend(fake, nil)
 
-	keys, err := b.List("missing")
+	_, err := b.List("missing")
+	if err == nil {
+		t.Fatal("expected error for non-existent namespace, got nil")
+	}
+}
+
+// --- Mixed-type JSON (non-envoke secrets) ---
+
+func TestGet_NonStringValue_ConvertedToString(t *testing.T) {
+	cases := []struct {
+		name string
+		json string
+		key  string
+		want string
+	}{
+		{"integer", `{"PORT": 5672}`, "PORT", "5672"},
+		{"float", `{"RATIO": 1.5}`, "RATIO", "1.5"},
+		{"bool", `{"TLS": true}`, "TLS", "true"},
+		{"null", `{"X": null}`, "X", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := tc.json
+			fake := &fakeClient{secrets: map[string]*string{"myns": &s}}
+			b := newBackend(fake, nil)
+			got, err := b.Get("myns", tc.key)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestList_MixedTypeSecret_ReturnsAllKeys(t *testing.T) {
+	s := `{"host": "rabbit", "port": 5672, "tls": true}`
+	fake := &fakeClient{secrets: map[string]*string{"myns": &s}}
+	b := newBackend(fake, nil)
+
+	keys, err := b.List("myns")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(keys) != 0 {
-		t.Errorf("expected empty slice, got %v", keys)
+	if len(keys) != 3 {
+		t.Errorf("got %d keys, want 3: %v", len(keys), keys)
 	}
 }
 
