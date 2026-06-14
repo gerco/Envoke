@@ -17,6 +17,10 @@ import (
 // Set by the caller (e.g. from a --verbose flag or config file) before calling Run.
 var Verbose bool
 
+// VeryVerbose enables extra diagnostic output (individual key fetches) when set to true.
+// Implies Verbose.
+var VeryVerbose bool
+
 // Run executes args[0] with args[1:] as its arguments. Secrets from all
 // namespaces in cfg are fetched and injected on top of the current
 // environment. The subprocess inherits stdin, stdout, and stderr.
@@ -90,6 +94,9 @@ func buildEnv(cfg *config.Loaded) ([]string, error) {
 		}
 
 		for _, key := range keys {
+			if VeryVerbose {
+				fmt.Fprintf(os.Stderr, "  fetching %s/%s\n", ns.Name, key)
+			}
 			value, err := b.Get(ns.Name, key)
 			if err != nil {
 				if errors.Is(err, backend.ErrNotFound) {

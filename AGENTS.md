@@ -56,7 +56,7 @@ Backends use Go build tags for optional compilation to keep binary sizes minimal
 
 ### Available Build Tags
 
-The `keychain` backend is always compiled in — no build tag needed.
+The `keychain` and `shell` backends are always compiled in — no build tag needed.
 
 | Tag | Backend | Notes |
 |-----|---------|-------|

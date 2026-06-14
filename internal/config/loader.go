@@ -129,12 +129,47 @@ func loadDotfile(path string) (DotFile, error) {
 
 // applyDotfileDefaults fills in omitted fields with their default values.
 // Namespaces without an explicit backend default to "keychain".
+// For shell namespaces (inline "shell" or an explicit backend of type "shell")
+// that carry a vars map, a synthetic per-namespace explicit config is registered
+// so the runner can resolve it by name. The explicit backend's options (e.g. the
+// "shell" invocation prefix) are inherited and the namespace vars are merged in.
 func applyDotfileDefaults(df *DotFile) {
 	for i := range df.Namespaces {
-		if df.Namespaces[i].Backend == "" {
-			df.Namespaces[i].Backend = "keychain"
+		ns := &df.Namespaces[i]
+		if ns.Backend == "" {
+			ns.Backend = "keychain"
+		}
+		if len(ns.Vars) > 0 {
+			if baseOpts := shellBaseOpts(ns.Backend); baseOpts != nil {
+				opts := make(map[string]string, len(baseOpts)+len(ns.Vars))
+				for k, v := range baseOpts {
+					opts[k] = v
+				}
+				for k, v := range ns.Vars {
+					opts[k] = v
+				}
+				syntheticName := "shell:" + ns.Name
+				backend.DefaultRegistry.RegisterExplicitConfig(syntheticName, "shell", opts)
+				ns.Backend = syntheticName
+			}
 		}
 	}
+}
+
+// shellBaseOpts returns the base options for a shell backend reference, or nil
+// if the backend name does not refer to a shell-type backend.
+// "shell" (the built-in name) returns an empty map so vars are used as-is.
+// An explicit backend of type "shell" returns its configured options (e.g.
+// a custom "shell" invocation prefix) so they are inherited by the namespace.
+func shellBaseOpts(backendName string) map[string]string {
+	if backendName == "shell" {
+		return map[string]string{}
+	}
+	cfg, ok := backend.DefaultRegistry.GetExplicitConfig(backendName)
+	if !ok || cfg.Type != "shell" {
+		return nil
+	}
+	return cfg.Options
 }
 
 // decodeFile parses a YAML file into v. If the file does not exist the call
