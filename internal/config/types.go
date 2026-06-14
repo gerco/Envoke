@@ -111,4 +111,5 @@ type NamespaceEntry struct {
 	Name    string            `yaml:"name"`
 	Backend string            `yaml:"backend,omitempty"`
 	Options map[string]string `yaml:"options,omitempty"`
+	Vars    map[string]string `yaml:"vars,omitempty"`
 }

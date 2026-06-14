@@ -54,5 +54,6 @@ func expandEnvInDotFile(df *DotFile) {
 	for i := range df.Namespaces {
 		df.Namespaces[i].Backend = expandEnv(df.Namespaces[i].Backend)
 		df.Namespaces[i].Options = expandEnvInMap(df.Namespaces[i].Options)
+		df.Namespaces[i].Vars = expandEnvInMap(df.Namespaces[i].Vars)
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"git.dries.info/gerco/envoke/internal/backend"
 )
 
 // setGlobalConfigDir redirects the global config lookup to dir for the duration
@@ -386,6 +388,69 @@ namespaces:
 	}
 	if cfg.Namespaces[2].Backend != "keychain" {
 		t.Errorf("[2] expected keychain, got %q", cfg.Namespaces[2].Backend)
+	}
+}
+
+func TestLoad_ShellNamespaceSyntheticBackend(t *testing.T) {
+	dir := t.TempDir()
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  - name: secrets
+    backend: shell
+    vars:
+      FOO: echo bar
+      BAZ: printf qux
+`)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Namespaces) != 1 {
+		t.Fatalf("expected 1 namespace, got %d", len(cfg.Namespaces))
+	}
+	ns := cfg.Namespaces[0]
+	if ns.Backend != "shell:secrets" {
+		t.Errorf("expected synthetic backend name %q, got %q", "shell:secrets", ns.Backend)
+	}
+}
+
+func TestLoad_ExplicitShellBackendInheritsShellOption(t *testing.T) {
+	// Pre-register an explicit shell backend directly (bypasses global config file
+	// so the test works on all platforms, including macOS where setGlobalConfigDir
+	// is a no-op).
+	backend.DefaultRegistry.RegisterExplicitConfig("bash-runner", "shell", map[string]string{
+		"shell": "/bin/bash -c",
+	})
+
+	dir := t.TempDir()
+	writeYAML(t, dir, ".envoke", `
+namespaces:
+  - name: secrets
+    backend: bash-runner
+    vars:
+      TOKEN: echo mytoken
+`)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Namespaces) != 1 {
+		t.Fatalf("expected 1 namespace, got %d", len(cfg.Namespaces))
+	}
+	ns := cfg.Namespaces[0]
+	if ns.Backend != "shell:secrets" {
+		t.Errorf("expected synthetic backend name %q, got %q", "shell:secrets", ns.Backend)
+	}
+	// Verify the synthetic config includes both the inherited shell option and the vars.
+	synCfg, ok := backend.DefaultRegistry.GetExplicitConfig("shell:secrets")
+	if !ok {
+		t.Fatal("expected synthetic explicit config to be registered")
+	}
+	if synCfg.Options["shell"] != "/bin/bash -c" {
+		t.Errorf("expected shell option to be inherited, got %q", synCfg.Options["shell"])
+	}
+	if synCfg.Options["TOKEN"] != "echo mytoken" {
+		t.Errorf("expected TOKEN var, got %q", synCfg.Options["TOKEN"])
 	}
 }
 
