@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"git.dries.info/gerco/envoke/internal/backend/shell"
 	"git.dries.info/gerco/envoke/internal/config"
 	"git.dries.info/gerco/envoke/internal/runner"
 )
@@ -42,7 +43,9 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		runner.Verbose = verbose || cfg.Verbose
+		runner.Verbose = verbosity >= 1 || cfg.Verbose
+		runner.VeryVerbose = verbosity >= 2
+		shell.VeryVerbose = verbosity >= 2
 		code, err := runner.Run(cfg, args)
 		if err != nil {
 			return err
@@ -57,12 +60,12 @@ var rootCmd = &cobra.Command{
 // projectDir is resolved at command startup and used by all subcommands.
 var projectDir string
 
-// verbose enables verbose output when set via --verbose / -v.
-var verbose bool
+// verbosity is incremented once per -v flag: -v = 1 (verbose), -vv = 2 (very verbose).
+var verbosity int
 
 func init() {
 	cobra.OnInitialize(resolveProjectDir)
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
+	rootCmd.PersistentFlags().CountVarP(&verbosity, "verbose", "v", "enable verbose output (-vv for extra verbosity)")
 }
 
 // resolveProjectDir walks up from the current working directory looking for a

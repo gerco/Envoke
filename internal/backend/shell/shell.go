@@ -4,11 +4,15 @@ package shell
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
 	"git.dries.info/gerco/envoke/internal/backend"
 )
+
+// VeryVerbose prints each shell command to stderr before executing it when true.
+var VeryVerbose bool
 
 // shellKey is the reserved option key for the shell invocation prefix.
 // It is never treated as a variable name.
@@ -55,6 +59,9 @@ func (s *shellBackend) Get(namespace, key string) (string, error) {
 		return "", fmt.Errorf("%w: %s/%s", backend.ErrNotFound, namespace, key)
 	}
 	args := append(s.shellArgs, cmd) //nolint:gocritic // intentional append to slice literal
+	if VeryVerbose {
+		fmt.Fprintf(os.Stderr, "    $ %s\n", cmd)
+	}
 	out, err := exec.Command(args[0], args[1:]...).Output()
 	if err != nil {
 		return "", fmt.Errorf("shell var %s/%s: command %q: %w", namespace, key, cmd, err)
