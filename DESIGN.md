@@ -36,20 +36,15 @@ The project dotfile (`.envoke`) is committed to git. It contains no secrets — 
 
 ## The Dotfile
 
-`.envoke` lives in the project root and is committed to git:
+`.envoke` lives in the project root and is committed to git. Format is YAML:
 
-```toml
-[[namespace]]
-name = "aws-dev"
-backend = "keeper"
-
-[[namespace]]
-name = "db-local"
-backend = "keychain"
-
-[[namespace]]
-name = "stripe-test"
-backend = "jumpcloud"
+```yaml
+namespaces:
+- name: aws-dev
+  backend: aws
+- name: db-local       # backend: keychain is the default and can be omitted
+- name: stripe-test
+  backend: 1password
 ```
 
 No secrets. Safe to commit, useful to review in PRs.
@@ -57,7 +52,7 @@ No secrets. Safe to commit, useful to review in PRs.
 ### Config layering
 
 ```
-~/.config/envoke/config.toml    ← your backends, your credentials  (gitignored)
+~/.config/envoke/config.yaml    ← your backends, your credentials  (gitignored)
 <project>/.envoke               ← what this project needs           (committed)
 <project>/.envoke.local         ← your personal overrides           (gitignored)
 ```
@@ -80,20 +75,21 @@ type Backend interface {
 
 ### Implemented
 
-| Backend | Platform | Notes |
-|---|---|---|
-| `keychain` | Windows, macOS, Linux | Credential Manager / Keychain / Secret Service via `99designs/keyring` |
-| `aws` | All | AWS Secrets Manager; keys stored as JSON fields in one secret per namespace |
-| `1password` | All | 1Password Secrets Manager SDK; read-only via service account token |
+| Backend | Key | Platform | Notes |
+|---------|-----|----------|-------|
+| `keychain` | Always compiled in | Windows, macOS, Linux | Credential Manager / Keychain / Secret Service via `99designs/keyring`. Default backend. |
+| `shell` | Always compiled in | All | Runs arbitrary shell commands to obtain secrets. Read-only. |
+| `aws` | Build tag `aws` | All | AWS Secrets Manager; keys stored as JSON fields in one secret per namespace |
+| `1password` | Build tag `1password` | All | 1Password Secrets Manager SDK; read-only via service account token |
 
 ### Planned / Stub
 
-| Backend | Notes |
-|---|---|
-| `keeper` | Keeper Secrets Manager — stub, not yet implemented |
-| `jumpcloud` | JumpCloud Password Manager — stub, not yet implemented |
-| `sops` | Encrypted files in git |
-| `vault` | HashiCorp Vault |
+| Backend | Build tag | Notes |
+|---------|-----------|-------|
+| `keeper` | `keeper` | Keeper Secrets Manager — stub, not yet implemented |
+| `jumpcloud` | `jumpcloud` | JumpCloud Password Manager — stub, not yet implemented |
+| `sops` | — | Encrypted files in git |
+| `vault` | — | HashiCorp Vault |
 
 Backend access is protected by whatever the backend enforces — Touch ID, Face ID, MFA, hardware tokens. Envoke inherits this for free.
 
@@ -117,35 +113,37 @@ AI coding agents (`aider`, `claude`, etc.) can be run via `ee` without ever touc
 
 ## Commands
 
-### `ee -- <command>`
+### `ee [--] <command>`
 
-Run a command with secrets injected from the project's `.envoke` file.
+Run a command with secrets from the project's `.envoke` injected into its environment. `--` is optional when no namespace is specified.
 
-### `ee init`
+### `ee <namespace> -- <command>`
 
-Interactive setup wizard. Detects available backends, walks through namespace configuration, and writes `.envoke`. Replaces hand-editing TOML from scratch.
+Run a command with a single keychain namespace injected. Bypasses `.envoke` entirely. `--` is required to separate the namespace from the command.
+
+### `ee set <namespace> <key> [value]`
+
+Store a secret in the backend configured for that namespace. If value is omitted, reads from stdin with echo suppressed. If `.envoke` already exists, adds the namespace to it if not already declared.
+
+### `ee list [namespace]`
+
+List secret key names in a namespace, or across all namespaces declared in `.envoke`. Never prints values.
 
 ### `ee status`
 
-Dashboard showing the current project's environment state:
+Show the authentication and reachability status for all namespaces in the current project. Degrades to plain text in non-interactive environments.
 
-```
-Namespace       Backend     Status
-──────────────────────────────────
-aws-dev         keeper      ✓ authenticated
-db-local        keychain    ✓ unlocked
-stripe-test     jumpcloud   ✗ token expired
-```
+### `ee config path`
 
-Selecting a row allows re-authentication or key inspection.
+Print the path to the global config file.
 
-### `ee run` (interactive)
+### `ee config edit`
 
-If run without arguments in a project with multiple profiles (e.g. `dev`, `staging`), displays a fuzzy picker to select which profile to activate.
+Open the global config file in `$EDITOR` (Unix) or `notepad.exe` (Windows). Falls back to `vi`. In non-interactive environments, prints the path instead.
 
-### `ee edit`
+### `ee config show`
 
-Browse, add, update, and delete keys in a namespace without values appearing in shell history. A minimal secret manager TUI scoped to the current project.
+Display the current global config with sensitive values redacted.
 
 ---
 
@@ -157,7 +155,7 @@ Built with **Bubble Tea** (charmbracelet). Components from `bubbles` (list, tabl
 
 ## Implementation Notes
 
-- `BurntSushi/toml` for dotfile parsing
+- `gopkg.in/yaml.v3` for dotfile and global config parsing
 - `99designs/keyring` for OS keychain abstraction
 - Keeper and JumpCloud have official Go SDKs
 - `cobra` for CLI structure

@@ -11,7 +11,7 @@ Unix philosophy applies throughout:
 - **Do one thing well.** `ee` injects secrets into a subprocess environment. It is not a secret manager, a shell, or a config framework.
 - **No output if nothing is wrong.** Commands succeed silently. Errors go to stderr with a non-zero exit code.
 - **Composable.** `ee` works in pipes, scripts, and CI without special modes or flags.
-- **Degrade gracefully.** TUI commands (`ee status`, `ee edit`, `ee run`) detect non-interactive environments and fall back to plain text output.
+- **Degrade gracefully.** TUI commands (`ee status`, `ee run`) detect non-interactive environments and fall back to plain text output.
 
 ## Language and Safety
 
@@ -106,11 +106,27 @@ When implementing a new backend:
 
 4. **Update `AGENTS.md`**: Add new backend to the approved dependencies list and build tags table.
 
+5. **Update docs**: Add a page under `docs/content/docs/backends/` and update the backends index table.
+
 5. **Test build**: Verify minimal build doesn't include backend symbols:
    ```bash
    go build -o /tmp/ee-minimal ./cmd/ee
    nm /tmp/ee-minimal | grep <name>  # should return nothing
    ```
+
+## Documentation
+
+The reference manual lives in `docs/` and is built with Hugo (Hextra theme). It is published to GitHub Pages via `.github/workflows/docs.yaml`.
+
+When making any change that affects user-facing behaviour — commands, flags, config format, backends, dotfile format, installation — check whether the docs need updating and update them as part of the same PR. Specifically:
+
+- New or removed commands → update `docs/content/docs/commands/`
+- New or changed flags → update the relevant command page and the commands index
+- New or changed backend → update `docs/content/docs/backends/`
+- Config format changes → update `docs/content/docs/configuration.md`
+- Installation changes → update `docs/content/docs/getting-started.md`
+
+To verify the docs build: `cd docs && hugo build`. No errors must be produced.
 
 ## Repository and Issues
 
