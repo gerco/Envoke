@@ -6,6 +6,10 @@
 /ee.exe
 /dist/
 
+# Hugo build output and lock files
+/docs/public/
+/docs/.hugo_build.lock
+
 # Personal config overrides — never commit these
 .envoke.local
 *.local
