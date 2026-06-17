@@ -65,6 +65,6 @@ The committed dotfile is the contract: it tells everyone exactly which namespace
 
 ## Next steps
 
-- [Configuration reference](configuration) — dotfile format, layering, and global config
-- [Backends](backends) — AWS, 1Password, shell, and others
-- [Commands](commands) — full CLI reference
+- [Configuration reference](docs/configuration) — dotfile format, layering, and global config
+- [Backends](docs/backends) — AWS, 1Password, shell, and others
+- [Commands](docs/commands) — full CLI reference
