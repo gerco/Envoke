@@ -13,11 +13,11 @@ jobs:
     if: github.server_url == 'https://github.com'
     runs-on: macos-15-intel
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -29,7 +29,7 @@ jobs:
             go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" \
             -o dist/darwin_amd64/envoke ./cmd/ee
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-darwin-amd64
           path: dist/
@@ -39,11 +39,11 @@ jobs:
     if: github.server_url == 'https://github.com'
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -55,7 +55,7 @@ jobs:
             go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" \
             -o dist/darwin_arm64/envoke ./cmd/ee
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-darwin-arm64
           path: dist/
@@ -65,11 +65,11 @@ jobs:
     if: github.server_url == 'https://github.com'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -82,7 +82,7 @@ jobs:
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" -o dist/windows_amd64/envoke.exe ./cmd/ee
           CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -tags aws -ldflags "-s -w -X main.version=${VERSION}" -o dist/windows_arm64/envoke.exe ./cmd/ee
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-linux-windows
           path: dist/
@@ -92,12 +92,12 @@ jobs:
     needs: [build-darwin-amd64, build-darwin-arm64, build-linux-windows]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Download all dist artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist/
           merge-multiple: true
