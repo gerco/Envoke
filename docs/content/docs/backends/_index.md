@@ -7,15 +7,15 @@ Backends are the secret stores Envoke fetches from. Each namespace in your `.env
 
 ## Available backends
 
-| Backend | Key | Platforms | Status |
-|---------|-----|-----------|--------|
-| OS Keychain | `keychain` | Windows, macOS, Linux | Stable |
-| AWS Secrets Manager | `aws` | All | Stable |
-| 1Password | `1password` | All | Stable |
-| Shell command | `shell` | All | Stable |
-| Keeper | `keeper` | All | Planned |
-| JumpCloud | `jumpcloud` | All | Planned |
-| SOPS | `sops` | All | Planned |
-| HashiCorp Vault | `vault` | All | Planned |
+| Backend | Key | Platforms | Status      |
+|---------|-----|-----------|-------------|
+| OS Keychain | `keychain` | Windows, macOS, Linux | Stable      |
+| AWS Secrets Manager | `aws` | All | Stable      |
+| Shell command | `shell` | All | Stable      |
+| 1Password | `1password` | All | Source only |
+| SOPS | `sops` | All | Planned     |
+| HashiCorp Vault | `vault` | All | Planned     |
+| Keeper | `keeper` | All | Planned     |
+| JumpCloud | `jumpcloud` | All | Planned     |
 
 Select a backend from the sidebar for configuration details.
