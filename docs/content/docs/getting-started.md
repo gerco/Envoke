@@ -13,12 +13,6 @@ brew install gerco/tap/envoke
 
 **Windows** — download the latest binary from the [releases page](https://github.com/gerco/Envoke/releases).
 
-**From source** — requires Go 1.21+:
-
-```shell
-go install github.com/gerco/Envoke/cmd/ee@latest
-```
-
 ## Quick start
 
 The fastest way to get started is with the OS keychain backend — no extra accounts or configuration needed.
