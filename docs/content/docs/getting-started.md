@@ -28,7 +28,7 @@ Stored myapp/DB_PASSWORD
 Added namespace "myapp" (backend: keychain) to .envoke
 ```
 
-`ee set` automatically creates an `.envoke` file in the current directory and adds the namespace if it isn't already there.
+If a `.envoke` file exists, even if it's empty, `ee set` automatically adds the namespace to the file if it isn't already there.
 
 **2. Run a command with the secret injected**
 
