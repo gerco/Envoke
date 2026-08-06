@@ -16,6 +16,19 @@ func LoadGlobal() (GlobalConfig, error) {
 	return loadGlobal()
 }
 
+// SaveDotfile writes df to the project dotfile at projectDir/.envoke.
+func SaveDotfile(projectDir string, df DotFile) error {
+	path := filepath.Join(projectDir, dotfileName)
+	data, err := yaml.Marshal(df)
+	if err != nil {
+		return fmt.Errorf("marshal: %w", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("write: %w", err)
+	}
+	return nil
+}
+
 // SaveGlobal writes cfg to the global config file, creating it if needed.
 func SaveGlobal(cfg GlobalConfig) error {
 	path, err := GlobalConfigPath()

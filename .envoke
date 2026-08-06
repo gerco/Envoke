@@ -1,8 +1,8 @@
-verbose: true
 namespaces:
-- name: shell-test
-  backend: shell
-  vars:
-    VAR1: echo blah
-    VAR2: Get-ComputerInfo
-    
+    - name: shell-test
+      backend: shell:shell-test
+      vars:
+        VAR1: echo blah
+        VAR2: Get-ComputerInfo
+    - name: blah
+      backend: keychain
