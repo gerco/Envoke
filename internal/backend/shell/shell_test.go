@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"runtime"
 	"testing"
 )
 
@@ -78,8 +79,14 @@ func TestShellBackend_SetReadOnly(t *testing.T) {
 }
 
 func TestShellBackend_CustomShell(t *testing.T) {
+	var shellArgs []string
+	if runtime.GOOS == "windows" {
+		shellArgs = []string{"cmd", "/c"}
+	} else {
+		shellArgs = []string{"sh", "-c"}
+	}
 	b := &shellBackend{
-		shellArgs: []string{"/bin/bash", "-c"},
+		shellArgs: shellArgs,
 		vars:      map[string]string{"KEY": "echo bash"},
 	}
 	val, err := b.Get("ns", "KEY")

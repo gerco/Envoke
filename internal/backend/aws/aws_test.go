@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"testing"
 
 	"git.dries.info/gerco/envoke/internal/backend"
@@ -184,15 +184,10 @@ func TestList_ReturnsKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	want := []string{"A", "B", "C"}
-	if len(keys) != len(want) {
+	if !slices.Equal(keys, want) {
 		t.Fatalf("got %v, want %v", keys, want)
-	}
-	for i := range want {
-		if keys[i] != want[i] {
-			t.Errorf("keys[%d] = %q, want %q", i, keys[i], want[i])
-		}
 	}
 }
 

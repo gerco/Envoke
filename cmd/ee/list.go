@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -73,7 +73,7 @@ func listNamespace(b backend.Backend, namespaceName string) error {
 	if err != nil {
 		return fmt.Errorf("list %q: %w", namespaceName, err)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	for _, k := range keys {
 		fmt.Println(k)
 	}
@@ -102,7 +102,7 @@ func listAll(cfg *config.Loaded) error {
 			continue
 		}
 
-		sort.Strings(keys)
+		slices.Sort(keys)
 		if len(keys) == 0 {
 			fmt.Fprintf(w, "%s\t(empty)\n", ns.Name)
 			continue

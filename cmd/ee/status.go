@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -76,7 +76,7 @@ var statusCmd = &cobra.Command{
 		for name := range allBackends {
 			names = append(names, name)
 		}
-		sort.Strings(names)
+		slices.Sort(names)
 
 		for _, name := range names {
 			b := allBackends[name]

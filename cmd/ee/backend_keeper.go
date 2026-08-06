@@ -1,5 +1,4 @@
 //go:build keeper
-// +build keeper
 
 package main
 

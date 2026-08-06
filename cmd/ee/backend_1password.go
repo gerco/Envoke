@@ -1,5 +1,4 @@
 //go:build 1password
-// +build 1password
 
 package main
 

@@ -1,5 +1,4 @@
 //go:build jumpcloud
-// +build jumpcloud
 
 package main
 
