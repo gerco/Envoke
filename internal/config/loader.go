@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -142,12 +143,8 @@ func applyDotfileDefaults(df *DotFile) {
 		if len(ns.Vars) > 0 {
 			if baseOpts := shellBaseOpts(ns.Backend); baseOpts != nil {
 				opts := make(map[string]string, len(baseOpts)+len(ns.Vars))
-				for k, v := range baseOpts {
-					opts[k] = v
-				}
-				for k, v := range ns.Vars {
-					opts[k] = v
-				}
+				maps.Copy(opts, baseOpts)
+				maps.Copy(opts, ns.Vars)
 				syntheticName := "shell:" + ns.Name
 				backend.DefaultRegistry.RegisterExplicitConfig(syntheticName, "shell", opts)
 				ns.Backend = syntheticName

@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 	"text/tabwriter"
 
@@ -68,7 +69,7 @@ var backendListCmd = &cobra.Command{
 		for name, bc := range cfg.Backends {
 			rows = append(rows, row{name, "explicit", bc.Type})
 		}
-		sort.Slice(rows, func(i, j int) bool { return rows[i].name < rows[j].name })
+		slices.SortFunc(rows, func(a, b row) int { return strings.Compare(a.name, b.name) })
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 		fmt.Fprintln(w, "NAME\tKIND\tDETAIL")
@@ -127,11 +128,9 @@ var backendDisableCmd = &cobra.Command{
 		}
 
 		// Check if already disabled
-		for _, n := range cfg.DisabledImplicitBackends {
-			if n == name {
-				fmt.Printf("Backend %q is already disabled.\n", name)
-				return nil
-			}
+		if slices.Contains(cfg.DisabledImplicitBackends, name) {
+			fmt.Printf("Backend %q is already disabled.\n", name)
+			return nil
 		}
 
 		cfg.DisabledImplicitBackends = append(cfg.DisabledImplicitBackends, name)
@@ -210,9 +209,7 @@ Examples:
 		if bc.Config == nil && len(setOpts) > 0 {
 			bc.Config = make(map[string]string)
 		}
-		for k, v := range setOpts {
-			bc.Config[k] = v
-		}
+		maps.Copy(bc.Config, setOpts)
 		for _, k := range editUnsetOpts {
 			delete(bc.Config, k)
 		}
@@ -253,11 +250,9 @@ var backendRemoveCmd = &cobra.Command{
 		// For registered (compiled-in) backends, disable instead.
 		if backend.DefaultRegistry.HasBackend(name) {
 			// Check if already disabled
-			for _, n := range cfg.DisabledImplicitBackends {
-				if n == name {
-					fmt.Printf("Backend %q is already disabled.\n", name)
-					return nil
-				}
+			if slices.Contains(cfg.DisabledImplicitBackends, name) {
+				fmt.Printf("Backend %q is already disabled.\n", name)
+				return nil
 			}
 			cfg.DisabledImplicitBackends = append(cfg.DisabledImplicitBackends, name)
 			if err := config.SaveGlobal(cfg); err != nil {

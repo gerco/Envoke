@@ -1,0 +1,8 @@
+verbose: true
+namespaces:
+- name: shell-test
+  backend: shell
+  vars:
+    VAR1: echo blah
+    VAR2: Get-ComputerInfo
+    

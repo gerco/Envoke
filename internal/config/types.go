@@ -13,6 +13,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 
 	"gopkg.in/yaml.v3"
 )
@@ -37,7 +38,7 @@ type BackendConfig struct {
 // and put all other fields into the Config map.
 func (bc *BackendConfig) UnmarshalYAML(node *yaml.Node) error {
 	// Decode into a map to get all fields
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := node.Decode(&raw); err != nil {
 		return err
 	}
@@ -65,13 +66,11 @@ func (bc *BackendConfig) UnmarshalYAML(node *yaml.Node) error {
 
 // MarshalYAML implements custom marshaling to write Config fields inline with Type.
 // This produces the flat format: type: aws, region: us-east-1 (not nested under config:).
-func (bc BackendConfig) MarshalYAML() (interface{}, error) {
+func (bc BackendConfig) MarshalYAML() (any, error) {
 	// Create a map with Type plus all Config entries
 	result := make(map[string]string, len(bc.Config)+1)
 	result["type"] = bc.Type
-	for k, v := range bc.Config {
-		result[k] = v
-	}
+	maps.Copy(result, bc.Config)
 	return result, nil
 }
 

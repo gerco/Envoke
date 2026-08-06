@@ -2,7 +2,7 @@ package keychain
 
 import (
 	"errors"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/99designs/keyring"
@@ -261,15 +261,10 @@ func TestList_ReturnsAllKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	want := []string{"A", "B", "C"}
-	if len(keys) != len(want) {
+	if !slices.Equal(keys, want) {
 		t.Fatalf("got %v, want %v", keys, want)
-	}
-	for i := range want {
-		if keys[i] != want[i] {
-			t.Errorf("keys[%d] = %q, want %q", i, keys[i], want[i])
-		}
 	}
 }
 
@@ -301,15 +296,10 @@ func TestList_NamespaceIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List ns1: %v", err)
 	}
-	sort.Strings(keys1)
+	slices.Sort(keys1)
 	want1 := []string{"A", "B"}
-	if len(keys1) != len(want1) {
+	if !slices.Equal(keys1, want1) {
 		t.Fatalf("ns1: got %v, want %v", keys1, want1)
-	}
-	for i := range want1 {
-		if keys1[i] != want1[i] {
-			t.Errorf("ns1[%d] = %q, want %q", i, keys1[i], want1[i])
-		}
 	}
 
 	// List ns2 should only return keys from ns2
@@ -317,15 +307,10 @@ func TestList_NamespaceIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List ns2: %v", err)
 	}
-	sort.Strings(keys2)
+	slices.Sort(keys2)
 	want2 := []string{"C", "D"}
-	if len(keys2) != len(want2) {
+	if !slices.Equal(keys2, want2) {
 		t.Fatalf("ns2: got %v, want %v", keys2, want2)
-	}
-	for i := range want2 {
-		if keys2[i] != want2[i] {
-			t.Errorf("ns2[%d] = %q, want %q", i, keys2[i], want2[i])
-		}
 	}
 }
 
