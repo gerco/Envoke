@@ -1,0 +1,17 @@
+{{- /*
+Homepage hero: the Envoke icon next to the site name and tagline.
+
+@param {string} title    Headline text (default: site title).
+@param {string} subtitle Tagline shown under the headline.
+*/ -}}
+{{- $title := .Get "title" | default site.Title -}}
+{{- $subtitle := .Get "subtitle" -}}
+<div class="not-prose" style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;margin-bottom:2rem">
+  <img src="{{ "favicon.svg" | relURL }}" alt="" width="104" height="104" style="flex:none;border-radius:22%;box-shadow:0 10px 30px -10px rgba(79,70,229,.55)" />
+  <div style="min-width:14rem;flex:1">
+    <h1 class="hx:text-4xl hx:font-bold hx:leading-none hx:tracking-tighter hx:md:text-5xl hx:py-2 hx:bg-clip-text hx:text-transparent hx:bg-gradient-to-r hx:from-gray-900 hx:to-gray-600 hx:dark:from-gray-100 hx:dark:to-gray-400">{{ $title }}</h1>
+    {{- with $subtitle }}
+    <p class="hx:mt-2 hx:text-xl hx:text-gray-600 hx:dark:text-gray-400">{{ . | markdownify }}</p>
+    {{- end }}
+  </div>
+</div>

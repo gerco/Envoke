@@ -1,9 +1,10 @@
 ---
 title: Envoke
 toc: false
+hideTitle: true
 ---
 
-**Per-command secret injection for development teams.**
+{{< envoke-hero title="Envoke" subtitle="Per-command secret injection for development teams." >}}
 
 Secrets are fetched from your vault and injected into a subprocess. Nothing persists. Nothing leaks sideways.
 
