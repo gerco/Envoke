@@ -10,17 +10,17 @@ set windows-shell := ["powershell.exe", "-Command"]
 default:
 	just --list
 
-# Build with all backends included
+# Build with default backends (keychain, shell, aws)
 # Go automatically adds .exe extension on Windows
 build:
-	go build -tags "aws" ./cmd/ee
-
-# Build minimal (no backends)
-# Go automatically adds .exe extension on Windows
-build-minimal:
 	go build ./cmd/ee
 
-# Build with specific backends (example: just build-with keychain,keeper)
+# Build minimal (keychain and shell only)
+# Go automatically adds .exe extension on Windows
+build-minimal:
+	go build -tags "noaws" ./cmd/ee
+
+# Build with extra backends (example: just build-with 1password,keeper)
 # Go automatically adds .exe extension on Windows
 build-with *backends:
 	go build -tags "{{backends}}" ./cmd/ee
@@ -31,7 +31,7 @@ test:
 
 # Run tests with all backends
 test-all:
-	go test -tags "1password,keeper,jumpcloud,aws" ./...
+	go test -tags "1password,keeper,jumpcloud" ./...
 
 # Clean build artifacts
 clean:

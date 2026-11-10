@@ -4,7 +4,11 @@ weight: 3
 ---
 
 The `1password` backend uses the [1Password Secrets Automation SDK](https://developer.1password.com/docs/sdks/) with a service account token. It is read-only.
-This backend is not compiled into pre-built binaries yet. To test it, check out the source and compile it in.
+This backend is not compiled into pre-built binaries yet. To use it, install with the `1password` build tag:
+
+```shell
+go install -tags "1password" git.dries.info/gerco/envoke/cmd/ee@latest
+```
 
 ## Global config
 

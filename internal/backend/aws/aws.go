@@ -1,5 +1,4 @@
-//go:build aws
-// +build aws
+//go:build !noaws
 
 // Package aws implements the AWS Secrets Manager backend.
 // To minimize AWS costs, all keys in a namespace are stored as fields

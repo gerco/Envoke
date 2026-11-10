@@ -27,27 +27,44 @@ The `.envoke` dotfile is committed to git. It contains no secrets — only the *
 
 ### Download a release
 
-Pre-built binaries for macOS, Linux, and Windows are available on the [releases page](https://git.dries.info/gerco/Envoke/releases).
+Pre-built binaries for macOS, Linux, and Windows are available on the [releases page](https://github.com/gerco/Envoke/releases).
+
+### Install with Go
+
+Requires Go 1.26 or newer (older toolchains download it automatically).
+
+```bash
+# Default backends: keychain, shell, AWS Secrets Manager
+go install git.dries.info/gerco/envoke/cmd/ee@latest
+
+# Add optional backends
+go install -tags "1password" git.dries.info/gerco/envoke/cmd/ee@latest
+
+# Minimal — keychain and shell only
+go install -tags "noaws" git.dries.info/gerco/envoke/cmd/ee@latest
+```
+
+The binary is installed as `ee` in `$(go env GOPATH)/bin`. Run `ee --version` to check which version you have.
 
 ### Build from source
 
 ```bash
-# All backends (~35MB)
-go build -tags "1password,keeper,jumpcloud,aws" -o ee ./cmd/ee
-
-# Minimal build — keychain only (~7.6MB)
+# Default backends (keychain, shell, AWS)
 go build -o ee ./cmd/ee
 
-# Specific backends
-go build -tags "aws,1password" -o ee ./cmd/ee
+# All backends (~35MB)
+go build -tags "1password,keeper,jumpcloud" -o ee ./cmd/ee
+
+# Minimal build — keychain only (~7.6MB)
+go build -tags "noaws" -o ee ./cmd/ee
 ```
 
 Or use `just`:
 
 ```bash
-just build              # builds with all backends
+just build              # default backends
 just build-minimal      # keychain only
-just build-with aws,1password
+just build-with 1password,keeper
 ```
 
 See [Building](#building) for details on build tags.
@@ -170,7 +187,7 @@ Uses the OS credential store. No extra config required — the `keychain` backen
 
 ### AWS Secrets Manager
 
-**Build tag:** `aws`
+**Build tag:** included by default; exclude with `noaws`
 
 Stores all keys in a namespace as a single JSON object in one AWS secret. This minimises API calls and cost.
 
@@ -346,26 +363,29 @@ ee backend remove prod-aws         # remove an explicit backend
 
 Backends use Go build tags for optional compilation. Only include the backends you need.
 
-The keychain backend is always included — no build tag needed.
+The keychain and shell backends are always included. AWS is included by default and can be excluded with the `noaws` tag; the others are opt-in.
 
 | Tag | Backend | Notes |
 |-----|---------|-------|
-| `aws` | AWS Secrets Manager | ~5MB overhead |
+| `noaws` | Excludes AWS Secrets Manager | Saves ~5MB |
 | `1password` | 1Password Secrets Manager | ~19MB overhead |
 | `keeper` | Keeper Secrets Manager | Stub — not yet implemented |
 | `jumpcloud` | JumpCloud Password Manager | Stub — not yet implemented |
 
 ```bash
-# All backends
-go build -tags "1password,keeper,jumpcloud,aws" -o ee ./cmd/ee
-
-# Minimal — keychain only (~7.6MB)
+# Default (keychain, shell, AWS)
 go build -o ee ./cmd/ee
 
+# All backends
+go build -tags "1password,keeper,jumpcloud" -o ee ./cmd/ee
+
+# Minimal — keychain only (~7.6MB)
+go build -tags "noaws" -o ee ./cmd/ee
+
 # Using justfile
-just build              # all backends
+just build              # default backends
 just build-minimal      # keychain only
-just build-with aws,1password
+just build-with 1password,keeper
 ```
 
 ---

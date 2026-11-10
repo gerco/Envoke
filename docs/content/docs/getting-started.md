@@ -11,6 +11,14 @@ weight: 1
 brew install gerco/tap/envoke
 ```
 
+**With Go** (any platform, Go 1.26+):
+
+```shell
+go install git.dries.info/gerco/envoke/cmd/ee@latest
+```
+
+Add `-tags "1password"` to include the 1Password backend, or `-tags "noaws"` to leave out AWS.
+
 **Windows** — download the latest binary from the [releases page](https://github.com/gerco/Envoke/releases).
 
 ## Quick start
