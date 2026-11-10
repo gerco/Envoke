@@ -21,6 +21,7 @@ Examples:
   ` + bin + ` -- make dev
   ` + bin + ` -- psql -h $DB_HOST -U $DB_USER
   ` + bin + ` -- aider --model claude-sonnet-4-6`
+	installLogoHelp(rootCmd, bin)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, bin+":", err)
