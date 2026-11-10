@@ -35,7 +35,7 @@ jobs:
           cache: true
       
       - name: Run tests (all backends)
-        run: go test -tags "1password,keeper,jumpcloud,aws" ./...
+        run: go test -tags "1password,keeper,jumpcloud" ./...
   
   lint:
     name: Lint

@@ -12,6 +12,7 @@ All Envoke functionality is accessed through the `ee` command.
 | `-v`, `--verbose` | Print backend activity to stderr |
 | `-vv` | Print individual key fetches and shell commands |
 | `--config <path>` | Override global config file path |
+| `--version` | Print the Envoke version |
 
 ## Commands
 

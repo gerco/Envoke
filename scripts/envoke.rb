@@ -1,6 +1,6 @@
 class Envoke < Formula
   desc "Environment secrets manager with pluggable backends"
-  homepage "https://git.dries.info/gerco/Envoke"
+  homepage "https://github.com/gerco/Envoke"
   license "MIT"
   version "${VERSION}"
 
@@ -32,7 +32,7 @@ class Envoke < Formula
   end
 
   test do
-    assert_match version.to_s, shell_output("#{bin}/envoke version")
-    assert_match version.to_s, shell_output("#{bin}/ee version")
+    assert_match version.to_s, shell_output("#{bin}/envoke --version")
+    assert_match version.to_s, shell_output("#{bin}/ee --version")
   end
 end

@@ -56,31 +56,34 @@ Backends use Go build tags for optional compilation to keep binary sizes minimal
 
 ### Available Build Tags
 
-The `keychain` and `shell` backends are always compiled in — no build tag needed.
+The `keychain` and `shell` backends are always compiled in. AWS is compiled in by default (`//go:build !noaws`) so that a plain `go install` includes it; exclude it with `-tags noaws`. All other backends are opt-in.
 
 | Tag | Backend | Notes |
 |-----|---------|-------|
 | `keeper` | Keeper Secrets Manager | Stub implementation currently |
 | `jumpcloud` | JumpCloud Password Manager | Stub implementation currently |
 | `1password` | 1Password Secrets Manager | ~19MB SDK overhead |
-| `aws` | AWS Secrets Manager | ~5MB SDK overhead |
+| `noaws` | Excludes AWS Secrets Manager | Saves ~5MB SDK overhead |
 
 ### Build Commands
 
 ```bash
-# Keychain only (~7.6MB — keychain is always compiled in)
+# Default: keychain, shell, AWS
 go build -o ee ./cmd/ee
 
+# Keychain only (~7.6MB)
+go build -tags "noaws" -o ee ./cmd/ee
+
 # With additional backends
-go build -tags "aws,1password" -o ee ./cmd/ee
+go build -tags "1password" -o ee ./cmd/ee
 
 # All backends
-go build -tags "1password,keeper,jumpcloud,aws" -o ee ./cmd/ee
+go build -tags "1password,keeper,jumpcloud" -o ee ./cmd/ee
 
 # Using justfile
-just build              # builds with all backends
+just build              # default backends
 just build-minimal      # keychain only
-just build-with aws,1password
+just build-with 1password,keeper
 ```
 
 ### Adding a New Backend
@@ -102,7 +105,7 @@ When implementing a new backend:
    import _ "git.dries.info/gerco/envoke/internal/backend/<name>"
    ```
 
-3. **Update `justfile`**: Add `<name>` to the `-tags` list in both `build` and `test-all` recipes.
+3. **Update `justfile`**: Add `<name>` to the `-tags` list in the `test-all` recipe.
 
 4. **Update `AGENTS.md`**: Add new backend to the approved dependencies list and build tags table.
 
